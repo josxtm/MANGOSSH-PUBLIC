@@ -47,7 +47,7 @@ public final class SshTransport {
             throw e;
         } finally { Arrays.fill(password, '\0'); }
     }
-    public boolean connected() { return session != null && session.isConnected; }
+    public boolean connected() { return session != null && session.isConnected(); }
     public boolean shellConnected() { return shell != null && shell.isConnected(); }
     public synchronized String diagnostic(String command) throws Exception {
         if (!EndpointPolicy.diagnostic(command)) throw new IllegalArgumentException("Diagnóstico no permitido");
