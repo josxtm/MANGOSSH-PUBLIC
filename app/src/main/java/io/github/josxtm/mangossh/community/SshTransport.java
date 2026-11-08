@@ -72,7 +72,7 @@ public final class SshTransport {
                 result.write(buffer, 0, count);
             }
             String text = new String(result.toByteArray(), StandardCharsets.UTF_8);
-            return text + (stderrSeen.get() ? "\n[stderr disponible]") +
+            return text + (stderrSeen.get() ? "\n[stderr disponible]" : "") +
                 (channel.getExitStatus() == 0 ? "" : "\n[Salida del comando: " + channel.getExitStatus() + "]");
         } finally { channel.disconnect(); }
     }
