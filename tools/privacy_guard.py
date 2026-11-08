@@ -13,7 +13,7 @@ APPROVED_ARTWORK = {
 
 def matches_approved_artwork(path, expected):
     data = path.read_bytes()
-    header = b"blob " + str(len(data)).encode("ascii") + b"\\x00"
+    header = b"blob " + str(len(data)).encode("ascii") + b"\x00"
     return hashlib.sha1(header + data).hexdigest() == expected
 
 
