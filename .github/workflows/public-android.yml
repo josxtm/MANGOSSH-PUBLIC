@@ -8,12 +8,12 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Privacy gate (fail closed)
+      - name: Privacy gate
         run: python3 tools/privacy_guard.py .
       - name: Privacy gate tests
         run: python3 -m unittest discover -s tests -p 'test_*.py'
@@ -27,19 +27,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build isolated public preview
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Verify APK signature and package ID
+      - name: Test, lint and build public SSH preview
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Inspect APK identity, permission and debug signature
         shell: bash
         run: |
           set -euo pipefail
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community'"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community' versionCode='2'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.INTERNET'
       - uses: actions/upload-artifact@v4
         with:
-          name: MANGOSSH-PUBLIC-PUBLIC-PREVIEW-NO-UPDATE
+          name: MANGOSSH-PUBLIC-PREVIEW-NO-PRIVATE-UPDATE
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14

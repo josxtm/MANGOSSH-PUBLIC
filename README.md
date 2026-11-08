@@ -1,27 +1,31 @@
-# MangoSSH Público
+# MangoSSH Público — Fase 2
 
-**Edición pública independiente — fase 1: base Android compilable y filtro de privacidad.**
+Edición **independiente**, paquete `io.github.josxtm.mangossh.community`, versión `0.2.0-public` (`versionCode 2`). Instalable en paralelo con aplicaciones privadas: **no las actualiza**.
 
-Este repositorio fue creado desde cero, **sin importar commits, ramas ni etiquetas** de otros proyectos. No contiene bases de datos de instalaciones, direcciones operativas, credenciales ni documentación interna.
+## Funciones implementadas
 
-## Estado funcional
+- Cliente SSH genérico con servidor, puerto, usuario y contraseña introducidos por el usuario.
+- Identidad del servidor comprobada mediante huella SHA-256. La primera conexión exige aceptación explícita; una clave de servidor cambiada se **rechaza**.
+- Diagnóstico de solo lectura mediante comandos permitidos de forma explícita: `whoami`, `pwd`, `date`, `uname -a`, `df -h`.
+- Terminal SSH interactivo, habilitado únicamente tras confirmar los privilegios de la sesión.
+- Historial de comandos de la sesión actual, salida con tamaño máximo y perfil de host/puerto/usuario guardado localmente.
+- No se guarda la contraseña ni se usa ninguna predeterminada. Datos locales del perfil y huellas no se incluyen en backups del sistema.
+- Sin telemetría, archivos corporativos, catálogo de instalaciones, configuración de redes ajenas o dependencias de otros repositorios.
 
-Pantalla de preparación de perfiles. NO establece conexiones SSH hasta incorporar el núcleo revisado.
+## Seguridad y límites
 
-La edición pública tiene **un applicationId diferente** (io.github.josxtm.mangossh.community) y por ello se instala en paralelo: **no actualiza, sustituye ni migra los datos de la edición privada instalada**. No cambies el identificador por el de la edición privada ni publiques certificados privados de firma.
+La primera huella del servidor **debe cotejarse fuera de banda**; aceptar una huella desconocida sin verificarla implica riesgo. El terminal interactivo ejecuta comandos con los privilegios concedidos por el servidor y no garantiza solo lectura. Actívalo solo sobre máquinas bajo tu control.
 
-## Compilar
+En esta entrega la autenticación es por contraseña **introducida para cada sesión**; el soporte de claves privadas importadas, perfiles múltiples y almacenamiento de credenciales con Android Keystore siguen pendientes. El historial es volátil y solo conserva hasta 20 comandos en memoria.
 
-En GitHub: Actions > **Public Android build** > Run workflow. La tarea comprueba privacidad y pruebas antes de generar una APK de desarrollo. En local, con Java 17, Android SDK 35 y Gradle 8.9: `gradle :app:assembleDebug`.
+La terminal es de texto sencillo; ignora algunas secuencias ANSI y **no sustituye a un emulador xterm completo**. No hay reenvío de puertos, transferencia SFTP, comandos automáticos ni acceso a topologías específicas.
 
-**La APK de Actions es una edición pública de pruebas**, no una actualización compatible con las instalaciones privadas. El proyecto no usa analítica, servidores de telemetría ni servicios en la nube.
+## Pruebas y compilación
 
-## Protección
+```sh
+python3 tools/privacy_guard.py .
+python3 -m unittest discover -s tests -p 'test_*.py'
+gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+```
 
-- Solo incorporar código revisado y adaptado expresamente a esta edición.
-- **Nunca** copiar repositorios privados mediante fork, mirror, `git push --mirror` ni `git filter-branch`.
-- No trasladar documentación interna, catálogos de instalaciones, archivos de firma, capturas de trabajos reales ni historiales Git.
-- Los datos del usuario deben permanecer en su dispositivo.
-- `python3 tools/privacy_guard.py .` impide publicar archivos y patrones sospechosos; **no reemplaza** la revisión manual.
-
-Lee `SECURITY.md` y `MIGRATION.md` antes de incorporar código funcional.
+GitHub Actions ejecuta estas comprobaciones, inspecciona firma e identidad y publica una APK preview. La firma de depuración es efímera: no constituye una actualización estable. Falta una verificación manual de conexión SSH sobre equipo autorizado y establecer una firma permanente exclusiva de la edición pública.
