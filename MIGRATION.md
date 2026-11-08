@@ -1,11 +1,8 @@
-# Migración controlada — MangoSSH Público
+# Estado de migración — Fase 2
 
-**Fase 1 completada:** repo creado desde cero, base Android independiente, escáner preventivo, CI de construcción y versión pública de pruebas.
-
-**Fase 2 pendiente (para Codex):** comparar exclusivamente el código actual del repositorio privado autorizado, clasificar archivos y dependencias, portar módulos genéricos revisados manteniendo la aplicación privada intacta, eliminar toda dependencia de material interno, ejecutar pruebas y validar comportamiento.
-
-**Fase 3 pendiente:** pruebas de usuario con APK pública instalada en paralelo. La equivalencia de funcionalidades, firma y actualización de la aplicación privada **no está demostrada**.
-
-No renombrar el paquete público (io.github.josxtm.mangossh.community) para imitar el privado. Las versiones públicas no deben acceder a datos de aplicaciones privadas por rutas compartidas.
-
-No trasladar bitácoras internas, ficheros reales, direcciones o topologías operativas, plantillas no redistribuibles, credenciales, certificados, keystores ni versiones históricas.
+- Proyecto público creado sin arrastrar ningún historial privado.
+- Conexión genérica SSH, pinning SHA-256 con confirmación explícita, diagnóstico de solo lectura, terminal protegido y perfil local.
+- No se ha importado código privado ni información interna de redes o dispositivos.
+- `applicationId` público conservado: `io.github.josxtm.mangossh.community`.
+- Pendiente: soporte de claves privadas y Android Keystore, perfiles múltiples, terminal xterm, pruebas de integración SSH instrumentadas y firma release propia.
+- El proyecto privado original no se modifica. No se transfieren sus perfiles ni credenciales. Nunca afirmar compatibilidad de actualizaciones entre ambas apps.
