@@ -58,8 +58,8 @@ public final class SshTransport {
             channel.setCommand(command);
             channel.setInputStream(null);
             InputStream stdout = channel.getInputStream();
-            ByteArrayOutputStream stderr = new ByteArrayOutputStream();
-            channel.setErrStream(stderr);
+            java.util.concurrent.atomic.AtomicBoolean stderrSeen = new java.util.concurrent.atomic.AtomicBoolean(false);
+            channel.setErrStream(new OutputStream() { @Override public void write(int value) { stderrSeen.set(true); } });
             channel.connect(10000);
             ByteArrayOutputStream result = new ByteArrayOutputStream();
             byte[] buffer = new byte[2048];
@@ -71,8 +71,8 @@ public final class SshTransport {
                 }
                 result.write(buffer, 0, count);
             }
-            String text = result.toString(StandardCharsets.UTF_8);
-            return text + (stderr.size() == 0 ? "" : "\n[stderr disponible]") +
+            String text = new String(result.toByteArray(), StandardCharsets.UTF_8);
+            return text + (stderrSeen.get() ? "\n[stderr disponible]") +
                 (channel.getExitStatus() == 0 ? "" : "\n[Salida del comando: " + channel.getExitStatus() + "]");
         } finally { channel.disconnect(); }
     }

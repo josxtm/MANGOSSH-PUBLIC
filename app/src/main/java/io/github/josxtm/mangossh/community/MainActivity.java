@@ -187,7 +187,7 @@ public final class MainActivity extends Activity {
     }
     @Override protected void onDestroy() {
         admin = false;
-        ssh.disconnect(); network.shutdownNow();
+        network.execute(ssh::disconnect); network.shutdown();
         executed.clear();
         super.onDestroy();
     }
