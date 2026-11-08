@@ -18,6 +18,22 @@ class PublicGuardTest(unittest.TestCase):
             (Path(root) / "test.md").write_text(value, encoding="utf-8")
             self.assertEqual(len(check(root)), 1)
 
+    def test_exact_approved_mango_artwork_is_allowed(self):
+        approved = Path(__file__).resolve().parents[1] / "app/src/main/res/drawable-nodpi/mangossh_launcher.jpg"
+        self.assertTrue(approved.is_file())
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "app/src/main/res/drawable-nodpi/mangossh_launcher.jpg"
+            destination.parent.mkdir(parents=True)
+            destination.write_bytes(approved.read_bytes())
+            self.assertEqual(check(root), [])
+
+    def test_modified_mango_artwork_is_blocked(self):
+        with tempfile.TemporaryDirectory() as root:
+            destination = Path(root) / "app/src/main/res/drawable-nodpi/mangossh_launcher.jpg"
+            destination.parent.mkdir(parents=True)
+            destination.write_bytes(b"unapproved placeholder")
+            self.assertTrue(check(root))
+
     def test_keystore_is_rejected(self):
         with tempfile.TemporaryDirectory() as root:
             (Path(root) / "sign.jks").write_bytes(b"test")

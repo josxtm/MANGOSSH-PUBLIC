@@ -28,3 +28,7 @@ El repositorio público tiene una Activity Java con formulario simple; falta la 
 El control `tools/gui_parity_gate.py` bloquea un conjunto mínimo de fuentes que deben existir. **No es una prueba pixel-perfect** ni sustituye revisar las pantallas. Su ejecución se ubica después de compilar y antes de subir la APK para impedir nuevas previews con interfaz incorrecta.
 
 [Trabajo pendiente](https://github.com/josxtm/MANGOSSH-PUBLIC/issues/4) · [PR de trabajo](https://github.com/josxtm/MANGOSSH-PUBLIC/pull/3).
+
+## Recurso restaurado en esta revisión
+
+Se incorporó **el icono original aprobado de MangoSSH** desde la referencia privada, con comprobación de bytes idénticos mediante Git blob SHA-1. La excepción de binarios de la auditoría pública solo admite esa ruta y ese contenido exacto. **La interfaz principal y las pantallas continúan pendientes de recuperación; el icono no demuestra paridad GUI completa.**

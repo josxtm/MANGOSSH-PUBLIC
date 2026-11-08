@@ -16,3 +16,10 @@
 - APK equivalente y aceptada por el propietario.
 
 No se han copiado archivos privados ni datos de instalaciones a GitHub público. No se ha modificado el repositorio privado.
+
+## Recuperación verificada de iconografía
+
+- Restaurado el icono original de mango con visor y terminal como recurso de la aplicación.
+- Actualizado manifiesto Android para utilizarlo como launcher.
+- Excepción estricta para un único fichero y hash en la revisión pública de privacidad; pruebas de archivo aprobado y modificación rechazada.
+- Sin alterar pantallas o lógica SSH existentes.
