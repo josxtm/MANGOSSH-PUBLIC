@@ -45,7 +45,7 @@ public final class SshTransport {
         } catch (Exception e) {
             active.disconnect();
             throw e;
-        } finally { Arrays.fill(password, '\\0'); }
+        } finally { Arrays.fill(password, '\0'); }
     }
     public boolean connected() { return session != null && session.isConnected; }
     public boolean shellConnected() { return shell != null && shell.isConnected(); }
@@ -72,8 +72,8 @@ public final class SshTransport {
                 result.write(buffer, 0, count);
             }
             String text = result.toString(StandardCharsets.UTF_8);
-            return text + (stderr.size() == 0 ? "" : "\\n[stderr disponible]") +
-                (channel.getExitStatus() == 0 ? "" : "\\n[Salida del comando: " + channel.getExitStatus() + "]");
+            return text + (stderr.size() == 0 ? "" : "\n[stderr disponible]") +
+                (channel.getExitStatus() == 0 ? "" : "\n[Salida del comando: " + channel.getExitStatus() + "]");
         } finally { channel.disconnect(); }
     }
     public synchronized void openShell(Output output) throws Exception {
@@ -98,7 +98,7 @@ public final class SshTransport {
                     String safe = raw.replaceAll("\\u001B\\[[0-?]*[ -/]*[@-~]", "");
                     output.onText(safe);
                 }
-            } catch (Exception ignored) { output.onText("\\n[Sesión de terminal finalizada]"); }
+            } catch (Exception ignored) { output.onText("\n[Sesión de terminal finalizada]"); }
         }, "public-ssh-terminal-reader");
         reader.setDaemon(true);
         reader.start();
@@ -106,7 +106,7 @@ public final class SshTransport {
     public synchronized void send(String command) throws Exception {
         if (!shellConnected()) throw new IllegalStateException("Terminal sin abrir");
         if (command.length() > 2048) throw new IllegalArgumentException("Comando demasiado largo");
-        shellInput.write((command + "\\n").getBytes(StandardCharsets.UTF_8));
+        shellInput.write((command + "\n").getBytes(StandardCharsets.UTF_8));
         shellInput.flush();
     }
     public synchronized void disconnect() {

@@ -138,7 +138,7 @@ public final class MainActivity extends Activity {
         });
     }
     private void renderHistory() {
-        history.setText(executed.isEmpty() ? "Sin comandos enviados" : String.join("\\n", executed));
+        history.setText(executed.isEmpty() ? "Sin comandos enviados" : String.join("\n", executed));
     }
     private boolean approve(String endpoint, String algorithm, String fingerprint) {
         if (isFinishing() || isDestroyed()) return false;
@@ -148,8 +148,8 @@ public final class MainActivity extends Activity {
             if (isFinishing() || isDestroyed()) { latch.countDown(); return; }
             AlertDialog dialog = new AlertDialog.Builder(this)
                 .setTitle("Servidor SSH desconocido")
-                .setMessage("Comprueba la huella del servidor mediante un canal fiable antes de aceptar.\\n\\nHost: "
-                    + endpoint + "\\nTipo: " + algorithm + "\\n" + fingerprint)
+                .setMessage("Comprueba la huella del servidor mediante un canal fiable antes de aceptar.\n\nHost: "
+                    + endpoint + "\nTipo: " + algorithm + "\n" + fingerprint)
                 .setPositiveButton("Confío en esta huella", (d,w) -> { allowed.set(true); latch.countDown(); })
                 .setNegativeButton("Rechazar", (d,w) -> latch.countDown())
                 .setOnCancelListener(d -> latch.countDown()).create();
@@ -175,13 +175,13 @@ public final class MainActivity extends Activity {
                 update("Conexión SSH establecida y clave de host verificada.");
             } catch (Exception e) {
                 update("Conexión rechazada o fallida: " + e.getClass().getSimpleName());
-            } finally { Arrays.fill(pass, '\\0'); }
+            } finally { Arrays.fill(pass, '\0'); }
         });
     }
     private void diagnostic(String value) {
         if (!ssh.connected()) { update("Conecta primero."); return; }
         network.execute(() -> {
-            try { appendOutput("\\n> " + value + "\\n" + ssh.diagnostic(value) + "\\n"); }
+            try { appendOutput("\n> " + value + "\n" + ssh.diagnostic(value) + "\n"); }
             catch (Exception e) { update("No se pudo ejecutar el diagnóstico."); }
         });
     }
