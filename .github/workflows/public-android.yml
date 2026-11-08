@@ -38,6 +38,8 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community' versionCode='2'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.INTERNET'
+      - name: Enforce original GUI parity before publishing APK
+        run: python3 tools/gui_parity_gate.py .
       - uses: actions/upload-artifact@v4
         with:
           name: MANGOSSH-PUBLIC-PREVIEW-NO-PRIVATE-UPDATE
