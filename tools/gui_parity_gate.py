@@ -6,6 +6,7 @@ Public files only; never loads private repositories.
 """
 from pathlib import Path
 import sys
+import xml.etree.ElementTree as ET
 
 REQUIRED = {
     "app/src/main/java/io/github/josxtm/mangossh/MainActivity.kt": [
@@ -39,8 +40,43 @@ def check(root, required=REQUIRED):
     return errors
 
 
+
+def check_launcher(root):
+    manifest = Path(root) / "app/src/main/AndroidManifest.xml"
+    if not manifest.is_file():
+        return ["missing Android launcher manifest"]
+    try:
+        document = ET.parse(manifest).getroot()
+    except (OSError, ET.ParseError):
+        return ["Android manifest cannot be parsed"]
+    android = "{http://schemas.android.com/apk/res/android}"
+    application = document.find("application")
+    if application is None:
+        return ["Android application element missing"]
+    activities = application.findall("activity")
+    compose = "io.github.josxtm.mangossh.MainActivity"
+    legacy = ".MainActivity"
+    problems = []
+    active_compose = [a for a in activities if a.get(android + "name") == compose]
+    active_legacy = [a for a in activities if a.get(android + "name") == legacy]
+    if len(active_compose) != 1 or active_compose[0].get(android + "exported") != "true":
+        problems.append("original Compose launcher Activity missing or disabled")
+    if len(active_legacy) != 1 or active_legacy[0].get(android + "exported") != "false":
+        problems.append("legacy Java Activity must remain internal and unexported")
+    launchers = []
+    for activity in activities:
+        for route in activity.findall("intent-filter"):
+            actions = {x.get(android + "name") for x in route.findall("action")}
+            categories = {x.get(android + "name") for x in route.findall("category")}
+            if "android.intent.action.MAIN" in actions and "android.intent.category.LAUNCHER" in categories:
+                launchers.append(activity.get(android + "name"))
+    if launchers != [compose]:
+        problems.append("APK launcher must open only the original Compose GUI")
+    return problems
+
 if __name__ == "__main__":
-    problems = check(sys.argv[1] if len(sys.argv) > 1 else ".")
+    root = sys.argv[1] if len(sys.argv) > 1 else "."
+    problems = check(root) + check_launcher(root)
     for problem in problems:
         print("GUI PARITY BLOCK:", problem)
     if problems:
