@@ -38,6 +38,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.josxtm.mangossh.core.*
 import io.github.josxtm.mangossh.ui.TerminalView
+import io.github.josxtm.mangossh.ui.mangoThemes
+import io.github.josxtm.mangossh.ui.mangoAutoColors
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,44 +57,50 @@ class MainActivity : ComponentActivity() {
 }
 
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF9BCB86), onPrimary = Color(0xFF172418),
-    secondary = Color(0xFFBED6AB), background = Color(0xFF10151B),
-    onBackground = Color(0xFFF1F4F5), surface = Color(0xFF1A2229),
-    onSurface = Color(0xFFF1F4F5), surfaceVariant = Color(0xFF29343C),
-    outline = Color(0xFF67787C), error = Color(0xFFF3A9A3))
-private val LightColors = lightColorScheme(
-    primary = Color(0xFF3D741F), onPrimary = Color.White,
-    secondary = Color(0xFF497D30), background = Color(0xFFF5F7FA),
-    onBackground = Color(0xFF1C2832), surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1C2832), surfaceVariant = Color(0xFFE9F2E3),
-    outline = Color(0xFF819388), error = Color(0xFFB12626))
-
 private val menuTitles = listOf("Conexión", "Terminal", "Diagnóstico", "Historial", "Ajustes")
 private val menuIcons: List<ImageVector> = listOf(
     Icons.Outlined.Link, Icons.Outlined.Terminal, Icons.Outlined.NetworkCheck,
     Icons.Outlined.History, Icons.Outlined.Settings
 )
 
-/** UI tokens are deliberately local: AutoControL can reuse this palette and icon map. */
+/** Tablet navigation follows AutoControL's compact 132 dp industrial rail.
+ * Mobile keeps the familiar bottom navigation to avoid losing any pages.
+ */
 @Composable private fun MangoNavigationRail(page: Int, onPage: (Int) -> Unit) {
-    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
-        Spacer(Modifier.height(8.dp))
-        // In landscape the Connection page already contains the SSH console.
-        // Keep the separate Terminal tab only in compact mobile navigation.
+    Column(
+        Modifier.width(132.dp).fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 6.dp, vertical = 9.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Text("MangoSSH", style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+        Text("SNIFFER LAN", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.primary)
+        HorizontalDivider(Modifier.padding(vertical = 6.dp))
+        // No separate Terminal entry on landscape; console lives in Connection.
         listOf(0, 2, 3, 4).forEach { index ->
             val label = menuTitles[index]
-            NavigationRailItem(
-                selected = page == index || (index == 0 && page == 1),
-                onClick = { onPage(index) },
-                icon = { Icon(menuIcons[index], contentDescription = label) },
-                label = { Text(label, fontSize = 10.sp) }, alwaysShowLabel = true,
-                colors = NavigationRailItemDefaults.colors(
-                    indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-                    selectedIconColor = MaterialTheme.colorScheme.primary
-                )
-            )
+            val active = page == index || (index == 0 && page == 1)
+            if (active) Button(
+                onClick = { onPage(index) }, modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp)
+            ) {
+                Icon(menuIcons[index], contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            } else TextButton(
+                onClick = { onPage(index) }, modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 5.dp, vertical = 8.dp)
+            ) {
+                Icon(menuIcons[index], contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+            }
         }
+        Spacer(Modifier.weight(1f))
+        Text("AutoControL · T4", style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -113,20 +123,15 @@ private val menuIcons: List<ImageVector> = listOf(
         }
     }
     fun export(text: String) { vm.pendingExport = text; exporter.launch("MangoSSH-" + System.currentTimeMillis() + ".txt") }
-    val dark = when (prefs.theme) {
-        "Claro" -> false
-        "Oscuro" -> true
-        else -> isSystemInDarkTheme()
-    }
     val wide = LocalConfiguration.current.screenWidthDp >= 840
     LaunchedEffect(wide) {
         if (wide && page == 1) page = 0 // console is embedded in wide Connection page
     }
-    MaterialTheme(colorScheme = if (dark) DarkColors else LightColors) {
+    MaterialTheme(colorScheme = mangoAutoColors(prefs.tabletTheme, prefs.theme, isSystemInDarkTheme())) {
         Scaffold(modifier = Modifier.imePadding(), containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 Surface(shadowElevation = 1.dp, color = MaterialTheme.colorScheme.surface) {
-                    Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp, vertical = 9.dp)) {
+                    Column(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 14.dp, vertical = 7.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                             Icon(Icons.Outlined.Terminal, contentDescription = null,
                                 tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(27.dp))
@@ -143,7 +148,7 @@ private val menuIcons: List<ImageVector> = listOf(
                         }
                         Text(state.connectedProfile?.let {
                             it.user + "@" + it.host + ":" + it.port + " · " + connection.name
-                        } ?: "Cliente SSH · " + connection.name,
+                        } ?: "SNIFFER LAN · Cliente SSH · " + connection.name,
                             style = MaterialTheme.typography.bodySmall)
                         if (state.message.isNotBlank())
                             Text(state.message.take(250), style = MaterialTheme.typography.labelSmall,
@@ -172,12 +177,12 @@ private val menuIcons: List<ImageVector> = listOf(
                     MangoNavigationRail(page) { page = it }
                     VerticalDivider()
                     if (page <= 2) {
-                        Box(Modifier.width(310.dp).fillMaxHeight()) { Connections(vm) }
+                        Box(Modifier.width(275.dp).fillMaxHeight()) { Connections(vm) }
                         VerticalDivider()
                         Box(Modifier.weight(1f)) {
                             when (page) {
                                 2 -> DiagnosticsPage(vm, ::export)
-                                else -> TerminalPage(vm, prefs, onQuick = { page = 2 })
+                                else -> TerminalPage(vm, prefs, onQuick = { page = 2 }, tablet = true)
                             }
                         }
                     } else Box(Modifier.weight(1f)) {
