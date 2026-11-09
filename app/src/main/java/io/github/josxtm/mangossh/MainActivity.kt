@@ -367,12 +367,13 @@ private val menuIcons: List<ImageVector> = listOf(
 }
 
 
-@Composable private fun TerminalPage(vm: MangoViewModel, prefs: Preferences, onQuick: () -> Unit) {
+@Composable private fun TerminalPage(vm: MangoViewModel, prefs: Preferences, onQuick: () -> Unit, tablet: Boolean = false) {
     val state by vm.state.collectAsStateWithLifecycle()
     val connection by vm.connection.collectAsStateWithLifecycle()
     var warning by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
-    Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+    Row(Modifier.fillMaxSize()) {
+    Column(Modifier.weight(1f).fillMaxHeight().padding(10.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
@@ -430,10 +431,56 @@ private val menuIcons: List<ImageVector> = listOf(
             }
         }
     }
+    if (tablet) {
+        VerticalDivider()
+        QuickDiagnosticsPanel(vm)
+    }
+    }
     if (warning) Confirm("Activar modo administrador",
         "El modo administrador permite modificar la configuración del dispositivo remoto. Utilízalo únicamente en equipos autorizados.\n\nUna shell root puede ejecutar cualquier operación permitida por el servidor. La activación solo dura esta sesión. No se registrará lo escrito.",
         { warning = false }) {
         warning = false; vm.activateAdmin()
+    }
+}
+
+/** Same three-pane rhythm as AutoControL's integrated SNIFFER: profiles,
+ * live terminal and compact read-only diagnostics. No new SSH operations.
+ */
+@Composable private fun QuickDiagnosticsPanel(vm: MangoViewModel) {
+    val state by vm.state.collectAsStateWithLifecycle()
+    val connection by vm.connection.collectAsStateWithLifecycle()
+    val connected = connection == ConnectionState.CONNECTED && !state.busy
+    val quickIds = setOf("firmware", "kernel", "uptime", "interfaces", "addresses", "routes", "network")
+    val quick = Diagnostics.commands.filter { it.id in quickIds }
+    LazyColumn(
+        Modifier.width(202.dp).fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(9.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        item {
+            Text("Comandos rápidos", style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold)
+            Text("Solo diagnóstico", style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        items(quick) { cmd ->
+            OutlinedButton(
+                onClick = { vm.run(cmd) }, enabled = connected,
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 7.dp, vertical = 6.dp)
+            ) { Text(cmd.title, style = MaterialTheme.typography.labelSmall, maxLines = 2) }
+        }
+        item {
+            HorizontalDivider(Modifier.padding(top = 5.dp))
+            Text("Último resultado", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.primary)
+            SelectionContainer {
+                Text(state.result.ifBlank { "Sin consultas" }.take(500),
+                    fontFamily = FontFamily.Monospace, fontSize = 10.sp,
+                    color = MaterialTheme.colorScheme.onSurface)
+            }
+        }
     }
 }
 
@@ -514,6 +561,21 @@ private val menuIcons: List<ImageVector> = listOf(
     LazyColumn(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Text("Configuración", style = MaterialTheme.typography.headlineSmall) }
         item { Text("Apariencia · MangoSSH / AutoControL", style = MaterialTheme.typography.titleMedium) }
+        item { Text("Los diez temas son los de AutoControL. Se inicia con T4 Gris Industrial; no cambia el terminal ni sus perfiles.",
+            style = MaterialTheme.typography.bodySmall) }
+        items(mangoThemes.indices.toList()) { index ->
+            OutlinedButton(
+                onClick = { vm.updatePreferences(prefs.copy(tabletTheme = index)) },
+                modifier = Modifier.fillMaxWidth(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Box(Modifier.size(17.dp).background(mangoThemes[index].accent, CircleShape))
+                Spacer(Modifier.width(10.dp))
+                Text((if (prefs.tabletTheme == index) "✓  " else "") + mangoThemes[index].name,
+                    modifier = Modifier.weight(1f), maxLines = 2)
+            }
+        }
+        item { Text("Modo de visualización", style = MaterialTheme.typography.titleSmall) }
         item { Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("Claro", "Oscuro", "Sistema").forEach { theme ->
             FilterChip(prefs.theme == theme, { vm.updatePreferences(prefs.copy(theme = theme)) }, label = { Text(theme) })
         } } }
