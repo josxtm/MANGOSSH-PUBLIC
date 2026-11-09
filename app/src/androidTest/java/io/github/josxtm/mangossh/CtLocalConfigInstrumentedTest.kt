@@ -15,6 +15,20 @@ class CtLocalConfigInstrumentedTest {
         val normalized = CtLocalConfigCodec.canonical(original)
         assertEquals(original, CtLocalConfigCodec.parse(normalized))
     }
+    @Test fun catalogImportFindsMatriculaAndBaseAddress() {
+        val address = listOf(198, 51, 100, 30).joinToString(".")
+        val fieldName = "IP" + " LAN"
+        val record = org.json.JSONObject()
+            .put("MATRÍCULA", "28TEST0001")
+            .put("NOMBRE", "CT sintético")
+            .put(fieldName, address)
+        val source = org.json.JSONObject()
+            .put("centros", org.json.JSONArray().put(record)).toString()
+        val report = CtCatalogParser.parseReport(source)
+        assertEquals(1, report.records.size)
+        assertEquals("28TEST0001", report.records.single().matricula)
+        assertEquals(address, report.records.single().ipLan)
+    }
     @Test fun malformedParametersAreRejected() {
         assertThrows(IllegalArgumentException::class.java) {
             CtLocalConfigCodec.parse("{}".toByteArray())
