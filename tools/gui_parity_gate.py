@@ -8,11 +8,13 @@ from pathlib import Path
 import sys
 
 REQUIRED = {
-    "app/src/main/java/io/github/josxtm/mangossh/community/MainActivity.kt": [
+    "app/src/main/java/io/github/josxtm/mangossh/MainActivity.kt": [
         "NavigationRail",
         "Scaffold",
         "LazyColumn"
     ],
+    "app/src/main/java/io/github/josxtm/mangossh/MangoViewModel.kt": ["MangoViewModel"],
+    "app/src/main/java/io/github/josxtm/mangossh/ui/TerminalView.kt": ["TerminalView"],
     "app/src/main/res/drawable-nodpi/mangossh_launcher.jpg": []
 }
 

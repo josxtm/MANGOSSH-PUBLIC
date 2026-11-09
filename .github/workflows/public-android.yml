@@ -36,7 +36,8 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community' versionCode='2'"
+          EXPECTED_VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community' versionCode='$EXPECTED_VERSION_CODE' versionName='1.0'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.INTERNET'
       - name: Enforce original GUI parity before publishing APK
         run: python3 tools/gui_parity_gate.py .

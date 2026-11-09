@@ -11,3 +11,7 @@
 - Las APK públicas anteriores son previews; no se deben presentar como equivalentes a las privadas.
 
 Consulte `docs/PARIDAD_GUI.md`.
+
+## Restauración Compose iniciada
+
+Rama `feat/restore-original-compose-gui`: doce fuentes Kotlin revisadas importadas desde código público de TELECONTROL PR #7, plugins Compose/Room habilitados, icono original y Activity Compose como launcher. Se preservan `applicationId` y pantalla Java anterior (sin exportar) como respaldo de perfiles; la migración de host/usuario/puerto es no destructiva. La GUI no está aceptada hasta pasar compilación y pruebas en hardware.

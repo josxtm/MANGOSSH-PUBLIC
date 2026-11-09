@@ -23,3 +23,11 @@ No se han copiado archivos privados ni datos de instalaciones a GitHub público.
 - Actualizado manifiesto Android para utilizarlo como launcher.
 - Excepción estricta para un único fichero y hash en la revisión pública de privacidad; pruebas de archivo aprobado y modificación rechazada.
 - Sin alterar pantallas o lógica SSH existentes.
+
+## Implementación de interfaz original
+
+- Migradas doce fuentes Compose y SSH desde `TELECONTROL-PUBLIC` PR #7, sin acceder a datos privados.
+- Configurado Gradle Kotlin 2.0.21, Material 3, Room, DataStore y JSch, y numeración pública de builds.
+- Activado launcher Compose; Activity Java antigua permanece no exportada para preservar los datos existentes.
+- Corregido bloqueo de estructura GUI para comprobar la ruta real de Kotlin.
+- Las operaciones de red específicas de instalaciones no se reactivan con código o reglas privadas.

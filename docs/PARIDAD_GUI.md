@@ -32,3 +32,9 @@ El control `tools/gui_parity_gate.py` bloquea un conjunto mínimo de fuentes que
 ## Recurso restaurado en esta revisión
 
 Se incorporó **el icono original aprobado de MangoSSH** desde la referencia privada, con comprobación de bytes idénticos mediante Git blob SHA-1. La excepción de binarios de la auditoría pública solo admite esa ruta y ese contenido exacto. **La interfaz principal y las pantallas continúan pendientes de recuperación; el icono no demuestra paridad GUI completa.**
+
+## Recuperación real de pantallas Compose — 09/11/2026
+
+Se han trasladado desde el **código público y saneado** de la integración TELECONTROL (PR #7) doce fuentes Kotlin de GUI, ViewModel, almacenamiento, SSH y terminal. La Activity Compose original ahora es el lanzador de esta APK; el formulario Java previo se mantiene instalado sin acceso de launcher, preservando preferencias del usuario. Mantenemos las mismas rutas visuales, temas y controles originales. Los módulos de planificación de red interna permanecen inhabilitados hasta disponer de configuración importada en el dispositivo.
+
+**Pendiente:** CI completa, comparación de capturas móvil/tablet y prueba física de SSH. El comprobador estructural no prueba equivalencia visual por sí solo.
