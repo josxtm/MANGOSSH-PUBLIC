@@ -66,7 +66,7 @@ private val menuIcons: List<ImageVector> = listOf(
 /** Tablet navigation follows AutoControL's compact 132 dp industrial rail.
  * Mobile keeps the familiar bottom navigation to avoid losing any pages.
  */
-@Composable private fun MangoNavigationRail(page: Int, onPage: (Int) -> Unit) {
+@Composable private fun MangoNavigationRail(page: Int, themeIndex: Int, onPage: (Int) -> Unit) {
     Column(
         Modifier.width(132.dp).fillMaxHeight()
             .background(MaterialTheme.colorScheme.surface)
@@ -99,7 +99,7 @@ private val menuIcons: List<ImageVector> = listOf(
             }
         }
         Spacer(Modifier.weight(1f))
-        Text("AutoControL · T4", style = MaterialTheme.typography.labelSmall,
+        Text("Tema T" + (themeIndex + 1) + " · AutoControL", style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
@@ -174,7 +174,7 @@ private val menuIcons: List<ImageVector> = listOf(
             }) { padding ->
             if (wide) {
                 Row(Modifier.fillMaxSize().padding(padding)) {
-                    MangoNavigationRail(page) { page = it }
+                    MangoNavigationRail(page, prefs.tabletTheme) { page = it }
                     VerticalDivider()
                     if (page <= 2) {
                         Box(Modifier.width(275.dp).fillMaxHeight()) { Connections(vm) }
