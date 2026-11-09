@@ -3,12 +3,15 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: public-mangossh-${{ github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
   apk:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 50
     steps:
       - uses: actions/checkout@v4
         with:
@@ -28,7 +31,7 @@ jobs:
         with:
           gradle-version: '8.9'
       - name: Test, lint and build public SSH preview
-        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+        run: gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Inspect APK identity, permission and debug signature
         shell: bash
         run: |
@@ -40,6 +43,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='io.github.josxtm.mangossh.community' versionCode='$EXPECTED_VERSION_CODE' versionName='1.0'"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump permissions "$APK" | grep -F 'android.permission.INTERNET'
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "launchable-activity: name='io.github.josxtm.mangossh.MainActivity'"
+      - name: Enable KVM acceleration
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Instrumented Android import, storage and startup tests
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: gradle --no-daemon :app:connectedDebugAndroidTest
       - name: Enforce original GUI parity before publishing APK
         run: python3 tools/gui_parity_gate.py .
       - uses: actions/upload-artifact@v4
