@@ -24,6 +24,8 @@ fun CtPanel(vm: MangoViewModel) {
     val importState by vm.ctImport.collectAsStateWithLifecycle()
     val session by vm.ctSession.collectAsStateWithLifecycle()
     val status by vm.state.collectAsStateWithLifecycle()
+    val runtime by vm.ctRuntimeConfig.collectAsStateWithLifecycle()
+    val runtimeStatus by vm.ctRuntimeStatus.collectAsStateWithLifecycle()
     var expanded by rememberSaveable { mutableStateOf(false) }
     var search by rememberSaveable { mutableStateOf("") }
     var base by rememberSaveable { mutableStateOf("") }
@@ -33,6 +35,9 @@ fun CtPanel(vm: MangoViewModel) {
     var confirmRestore by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importCtCatalog(uri)
+    }
+    val runtimePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) vm.importCtLocalConfig(uri)
     }
     val normalizedSearch = CtCatalogParser.normalizeMatricula(search)
     val selectedRecord = catalog.firstOrNull { it.matricula == normalizedSearch }
@@ -55,8 +60,8 @@ fun CtPanel(vm: MangoViewModel) {
         it.matricula.contains(normalizedSearch) ||
             it.name.contains(search.trim(), ignoreCase = true)
     }.take(8)
-    val plan = remember(search, base, mask) {
-        runCatching { CtPlanning.build(search, base, mask) }.getOrNull()
+    val plan = remember(search, base, mask, runtime) {
+        runCatching { CtPlanning.build(search, base, mask, runtime) }.getOrNull()
     }
     Card(Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
@@ -92,6 +97,12 @@ fun CtPanel(vm: MangoViewModel) {
                 }
                 Text("${catalog.size} CT disponibles en esta sesión (JSON local).",
                     style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(
+                    enabled = !status.busy && !session.working,
+                    onClick = { runtimePicker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
+                ) { Text("Importar parámetros de red locales (cifrados)") }
+                Text(runtimeStatus, style = MaterialTheme.typography.bodySmall,
+                    color = if (runtime == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                 OutlinedTextField(search,
                     { search = CtCatalogParser.normalizeMatricula(it) },
                     label = { Text("Matrícula del CT") }, singleLine = true,
@@ -148,7 +159,9 @@ fun CtPanel(vm: MangoViewModel) {
                             }
                         }
                     }
-                } else Text("Introduce matrícula, IP\u0020LAN y máscara válidas para calcular los destinos autorizados.",
+                } else Text(
+                    if (runtime == null) "Importa una vez los parámetros de red desde un JSON local autorizado."
+                    else "Introduce matrícula, dirección base y máscara válidas para calcular los destinos.",
                     style = MaterialTheme.typography.bodySmall)
                 Button(
                     enabled = plan != null && !status.busy && !session.working,
