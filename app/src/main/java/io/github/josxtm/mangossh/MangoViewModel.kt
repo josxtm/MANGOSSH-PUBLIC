@@ -297,14 +297,70 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
     // Import state is displayed persistently in CT · Red local, not only the tiny app header.
     private val ctImportData = MutableStateFlow(CtImportUiState())
     val ctImport: StateFlow<CtImportUiState> = ctImportData
+    private val ctRuntimeData = MutableStateFlow<CtRuntimeConfig?>(null)
+    val ctRuntimeConfig: StateFlow<CtRuntimeConfig?> = ctRuntimeData.asStateFlow()
+    private val ctRuntimeInfo = MutableStateFlow("Faltan los parámetros locales de red")
+    val ctRuntimeStatus: StateFlow<String> = ctRuntimeInfo.asStateFlow()
+    private val runtimeStorageKey = "ct-local-rules-v1"
+
     private val ctCatalogSource = application.getSharedPreferences(
         "ct_catalog_document", android.content.Context.MODE_PRIVATE)
 
     init {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val saved = vault.get(runtimeStorageKey) ?: return@launch
+                val restored = try { CtLocalConfigCodec.parse(saved) }
+                    finally { saved.fill(0) }
+                if (ctRuntimeData.value == null) {
+                    ctRuntimeData.value = restored
+                    ctRuntimeInfo.value = "Parámetros locales protegidos: ${restored.targets.size} destinos"
+                }
+            }.onFailure {
+                ctRuntimeInfo.value = "No se pudieron recuperar los parámetros cifrados: impórtalos de nuevo"
+            }
+        }
         // A SAF document grant survives ordinary, same-package/same-signature
         // APK upgrades. Rebuild only the in-memory CT index after process restart.
         ctCatalogSource.getString("source_uri", null)?.let { saved ->
             importCtCatalog(Uri.parse(saved), restored = true)
+        }
+    }
+
+    fun importCtLocalConfig(uri: Uri) {
+        if (state.value.busy || ctSessionData.value.working) return message("Finaliza primero la operación SSH")
+        viewModelScope.launch {
+            ctRuntimeInfo.value = "Validando parámetros de red seleccionados…"
+            try {
+                val validated = withContext(Dispatchers.IO) {
+                    val resolver = getApplication<Application>().contentResolver
+                    val source = resolver.openInputStream(uri) ?: error("Archivo inaccesible")
+                    val raw = source.use { stream ->
+                        val memory = java.io.ByteArrayOutputStream()
+                        val block = ByteArray(4096)
+                        while (true) {
+                            val count = stream.read(block)
+                            if (count < 0) break
+                            require(memory.size() + count <= CtLocalConfigCodec.MAX_BYTES) {
+                                "Archivo de parámetros demasiado grande"
+                            }
+                            memory.write(block, 0, count)
+                        }
+                        memory.toByteArray()
+                    }
+                    try {
+                        val parsed = CtLocalConfigCodec.parse(raw)
+                        vault.put(runtimeStorageKey, CtLocalConfigCodec.canonical(parsed))
+                        parsed
+                    } finally { raw.fill(0) }
+                }
+                ctRuntimeData.value = validated
+                ctRuntimeInfo.value = "Parámetros locales cifrados y cargados: ${validated.targets.size} destinos"
+                ctSessionData.value = CtSession(stage = "Plan actualizado; comprueba la máscara y confirma WAN")
+                message("Parámetros locales listos: ${validated.targets.size} destinos")
+            } catch (error: Exception) {
+                ctRuntimeInfo.value = "Importación rechazada: ${error.message?.take(90) ?: "revisa el archivo"}. Se conserva la configuración anterior."
+            }
         }
     }
 
@@ -395,7 +451,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun setupAndProbeCt(matricula: String, base: String, mask: String, confirmed: Boolean) {
         if (!confirmed || state.value.busy || ctSessionData.value.working) return
-        val plan = runCatching { CtPlanning.build(matricula, base, mask) }
+        val plan = runCatching { CtPlanning.build(matricula, base, mask, ctRuntimeData.value) }
             .getOrElse { return message(it.message ?: "Plan CT inválido") }
         runCatching { requireMangoConnection() }
             .onFailure { return message(it.message ?: "Mango no conectado") }
@@ -417,7 +473,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                 check(verify.successful && verify.stdout.contains("CT_WAN_OK")) {
                     "WAN asignada pero no verificada: ${verify.report().take(400)}"
                 }
-                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando siete pings", lastOutput = verify.report())
+                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando pings autorizados", lastOutput = verify.report())
                 executeCtPings(plan)
             } catch (e: CancellationException) {
                 ctSessionData.value = ctSessionData.value.copy(stage = "Cancelado. Comprueba y restaura WAN si procede")
