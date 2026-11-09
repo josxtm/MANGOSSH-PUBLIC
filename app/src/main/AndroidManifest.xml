@@ -2,13 +2,18 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET"/>
     <application
+        android:icon="@drawable/mangossh_launcher"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:usesCleartextTraffic="false"
         android:label="MangoSSH Público"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="true">
+        <!-- Keep legacy Activity and its local preferences for non-destructive upgrades. -->
+        <activity android:name=".MainActivity" android:exported="false"/>
+        <!-- Original owner-approved Compose GUI: only public launcher. -->
+        <activity android:name="io.github.josxtm.mangossh.MainActivity"
+            android:exported="true" android:label="MangoSSH">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

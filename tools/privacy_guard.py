@@ -3,6 +3,19 @@
 from pathlib import Path
 import re
 import sys
+import hashlib
+
+# Original owner-approved mango artwork. Only exact bytes of this single file may
+# bypass the general prohibition on binaries in public source. Git blob SHA-1.
+APPROVED_ARTWORK = {
+    "app/src/main/res/drawable-nodpi/mangossh_launcher.jpg": "1d4ce8b2ab0abdfc919d13ea31755ed73953c6df",
+}
+
+def matches_approved_artwork(path, expected):
+    data = path.read_bytes()
+    header = b"blob " + str(len(data)).encode("ascii") + b"\x00"
+    return hashlib.sha1(header + data).hexdigest() == expected
+
 
 BLOCK_EXT = {".keystore", ".jks", ".p12", ".pfx", ".pem", ".key", ".csv",
              ".xls", ".xlsx", ".xlsm", ".sqlite", ".sqlite3", ".db",
@@ -25,6 +38,10 @@ def check(root):
             continue
         rel = p.relative_to(root).as_posix()
         if any(part in SKIP for part in p.relative_to(root).parts):
+            continue
+        if rel in APPROVED_ARTWORK:
+            if not matches_approved_artwork(p, APPROVED_ARTWORK[rel]):
+                problems.append((rel, "unapproved or modified image bytes"))
             continue
         if p.suffix.lower() in BLOCK_EXT or NAME.search(rel):
             problems.append((rel, "filename or file type"))
