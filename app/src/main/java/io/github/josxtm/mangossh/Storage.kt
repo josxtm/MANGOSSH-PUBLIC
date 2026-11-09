@@ -103,15 +103,24 @@ class SecretVault(context: Context) : TrustedHosts {
 }
 
 private val Context.preferences by preferencesDataStore("settings")
-data class Preferences(val theme: String = "Claro", val fontSize: Int = 16, val timeout: Int = 15, val saveOutput: Boolean = false)
+// Existing DataStore preferences and Room database are preserved. No migrations
+// or deletes are needed: new theme index defaults to AutoControL's T4.
+data class Preferences(val theme: String = "Claro", val fontSize: Int = 16,
+    val timeout: Int = 15, val saveOutput: Boolean = false, val tabletTheme: Int = 3)
 class Settings(context: Context) {
     private val store = context.preferences
-    val flow = store.data.map { p -> Preferences(p[stringPreferencesKey("theme")] ?: "Claro", p[intPreferencesKey("font")] ?: 16,
-        p[intPreferencesKey("timeout")] ?: 15, p[booleanPreferencesKey("output")] ?: false) }
+    val flow = store.data.map { p -> Preferences(
+        theme = p[stringPreferencesKey("theme")] ?: "Claro",
+        fontSize = p[intPreferencesKey("font")] ?: 16,
+        timeout = p[intPreferencesKey("timeout")] ?: 15,
+        saveOutput = p[booleanPreferencesKey("output")] ?: false,
+        tabletTheme = (p[intPreferencesKey("tabletTheme")] ?: 3).coerceIn(0, 9)
+    ) }
     suspend fun update(p: Preferences) { store.edit {
         it[stringPreferencesKey("theme")] = p.theme
         it[intPreferencesKey("font")] = p.fontSize.coerceIn(10, 28)
         it[intPreferencesKey("timeout")] = p.timeout.coerceIn(1, 60)
         it[booleanPreferencesKey("output")] = p.saveOutput
+        it[intPreferencesKey("tabletTheme")] = p.tabletTheme.coerceIn(0, 9)
     } }
 }
