@@ -19,6 +19,24 @@ android {
         versionName '1.0'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
+    // A stable signing key is supplied only from a protected release environment.
+    // Debug previews never read or embed signing secrets.
+    if (System.getenv('MANGOSSH_KEYSTORE_PATH') &&
+        System.getenv('MANGOSSH_KEYSTORE_PASSWORD') &&
+        System.getenv('MANGOSSH_KEY_ALIAS') &&
+        System.getenv('MANGOSSH_KEY_PASSWORD')) {
+        signingConfigs {
+            stable {
+                storeFile file(System.getenv('MANGOSSH_KEYSTORE_PATH'))
+                storePassword System.getenv('MANGOSSH_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('MANGOSSH_KEY_ALIAS')
+                keyPassword System.getenv('MANGOSSH_KEY_PASSWORD')
+            }
+        }
+        buildTypes {
+            release { signingConfig signingConfigs.stable }
+        }
+    }
     buildFeatures { compose true; buildConfig true }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
