@@ -61,20 +61,20 @@ object CtCommands {
     private const val rollback = "/etc/config/mangossh-ct-wan-rollback"
     private val deviceCheck = """
         device=$(uci -q get network.wan.device || uci -q get network.wan.ifname || true)
-        test -n "$device" || { echo 'WAN sin interfaz física identificable' >&2; exit 8; }
-        case "$device" in *[!a-zA-Z0-9_.:-]* ) exit 8 ;; esac
-        ip link show dev "$device" >/dev/null 2>&1 || { echo 'Interfaz WAN no disponible' >&2; exit 8; }
+        test -n "${'$'}device" || { echo 'WAN sin interfaz física identificable' >&2; exit 8; }
+        case "${'$'}device" in *[!a-zA-Z0-9_.:-]* ) exit 8 ;; esac
+        ip link show dev "${'$'}device" >/dev/null 2>&1 || { echo 'Interfaz WAN no disponible' >&2; exit 8; }
     """.trimIndent()
     fun preflight() = DiagnosticCommand("ct-preflight", "CT", "Comprobar WAN Mango", """
         set -eu
         test "$(id -u)" = 0 || { echo 'Necesita root' >&2; exit 8; }
         model=$(cat /tmp/sysinfo/model 2>/dev/null || true)
-        case "$model" in *GL-MT300N-V2*|*GL-MT300N* ) ;; *) echo 'Modelo Mango no verificado' >&2; exit 8 ;; esac
+        case "${'$'}model" in *GL-MT300N-V2*|*GL-MT300N* ) ;; *) echo 'Modelo Mango no verificado' >&2; exit 8 ;; esac
         command -v uci >/dev/null 2>&1
         command -v ip >/dev/null 2>&1
         test "$(uci -q get network.wan)" = interface
         test ! -e $rollback || { echo 'Restauración WAN anterior pendiente' >&2; exit 8; }
-        $deviceCheck
+        ${'$'}deviceCheck
         printf 'CT_PREFLIGHT_OK\n'
     """.trimIndent())
     fun apply(plan: CtPlan): DiagnosticCommand {
@@ -86,7 +86,7 @@ object CtCommands {
             test "$(id -u)" = 0
             test ! -e $rollback || { echo 'Restauración WAN pendiente' >&2; exit 8; }
             test "$(uci -q get network.wan)" = interface
-            $deviceCheck
+            ${'$'}deviceCheck
             cp -p /etc/config/network $rollback
             uci set network.wan.proto='static'
             uci set network.wan.ipaddr='${plan.mangoIp}'
@@ -108,8 +108,8 @@ object CtCommands {
             test "$(uci -q get network.wan.proto)" = static
             test "$(uci -q get network.wan.ipaddr)" = '${plan.mangoIp}'
             test "$(uci -q get network.wan.netmask)" = '${plan.netmask}'
-            $deviceCheck
-            ip -4 addr show dev "$device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null
+            ${'$'}deviceCheck
+            ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null
             printf 'CT_WAN_OK\n'
         """.trimIndent())
     }
