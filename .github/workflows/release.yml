@@ -48,9 +48,10 @@ jobs:
           trap 'rm -f "$key_path"' EXIT
           printf '%s' "$STORE_B64" | base64 --decode > "$key_path"
           export MANGOSSH_KEYSTORE_PATH="$key_path"
-          export MANGOSSH_KEYSTORE_PASSWORD="$STORE_PASS"
-          export MANGOSSH_KEY_ALIAS="$KEY_ALIAS"
-          export MANGOSSH_KEY_PASSWORD="$KEY_PASS"
+          printf -v MANGOSSH_KEYSTORE_PASSWORD '%s' "$STORE_PASS"
+          printf -v MANGOSSH_KEY_ALIAS '%s' "$KEY_ALIAS"
+          printf -v MANGOSSH_KEY_PASSWORD '%s' "$KEY_PASS"
+          export MANGOSSH_KEYSTORE_PASSWORD MANGOSSH_KEY_ALIAS MANGOSSH_KEY_PASSWORD
           gradle --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PpublicCompilationNumber=$((200000 + GITHUB_RUN_NUMBER))
           apk=app/build/outputs/apk/release/app-release.apk
           test -s "$apk"
