@@ -28,7 +28,7 @@ internal class CtLimitedInputStream(
     private fun increment(value: Int) {
         totalBytes += value
         if (totalBytes > limitBytes)
-            throw IllegalArgumentException("El JSON supera el límite de 256 MB descomprimidos")
+            throw IllegalArgumentException("El catálogo supera el límite de 256 MB descomprimidos")
         if (totalBytes - lastProgress >= 2L * 1024 * 1024) {
             lastProgress = totalBytes
             onProgress(totalBytes)
@@ -52,7 +52,14 @@ object CtImportStream {
                 PushbackReader(InputStreamReader(limited, Charsets.UTF_8), 1).use { reader ->
                     val head = reader.read()
                     if (head >= 0 && head != 0xFEFF) reader.unread(head)
-                    return CtCatalogStreamParser.parse(reader)
+                    // JSON remains supported for existing installations; CSV is primary.
+                    // Both formats share the same bounded decompression stream.
+                    var marker = reader.read()
+                    while (marker >= 0 && marker.toChar().isWhitespace()) marker = reader.read()
+                    if (marker >= 0) reader.unread(marker)
+                    return if (marker == '{'.code || marker == '['.code)
+                        CtCatalogStreamParser.parse(reader)
+                    else CtCsvCatalogParser.parse(reader)
                 }
             }
         }

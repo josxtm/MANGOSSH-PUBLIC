@@ -327,6 +327,40 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Configure the routing layout locally, without distributing a JSON file. */
+    fun saveCtRules(wanText: String, targetsText: String) {
+        if (state.value.busy || ctSessionData.value.working) {
+            message("Finaliza primero la operación SSH")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val wan = wanText.trim().toIntOrNull() ?: error("Indica un offset WAN numérico")
+                val targetLines = targetsText.lines().map(String::trim).filter(String::isNotBlank)
+                require(targetLines.size in 1..16) { "Introduce entre 1 y 16 destinos" }
+                val targets = targetLines.map { line ->
+                    val separator = line.lastIndexOf(':')
+                    require(separator in 1 until line.lastIndex) { "Formato de destino: Nombre:offset" }
+                    val offset = line.substring(separator + 1).trim().toIntOrNull()
+                        ?: error("Offset de destino inválido")
+                    CtOffset(line.substring(0, separator).trim(), offset)
+                }
+                val config = CtRuntimeConfig(wan, targets).also { it.validate() }
+                withContext(Dispatchers.IO) {
+                    vault.put(runtimeStorageKey, CtLocalConfigCodec.canonical(config))
+                }
+                ctRuntimeData.value = config
+                ctRuntimeInfo.value = "Reglas guardadas cifradas en esta tablet: " +
+                    config.targets.size + " destinos"
+                ctSessionData.value = CtSession(stage = "Parámetros guardados; selecciona el CT")
+                message("Configuración de red local guardada")
+            } catch (error: Exception) {
+                ctRuntimeInfo.value = "No se modificó la configuración: " +
+                    (error.message ?: "parámetros inválidos").take(120)
+            }
+        }
+    }
+
     fun importCtLocalConfig(uri: Uri) {
         if (state.value.busy || ctSessionData.value.working) return message("Finaliza primero la operación SSH")
         viewModelScope.launch {
@@ -367,7 +401,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
     fun importCtCatalog(uri: Uri, restored: Boolean = false) {
         if (ctImportData.value.phase == "loading") return
         val previousCount = ctCatalogData.value.size
-        ctImportData.value = CtImportUiState(phase = "loading", message = "Leyendo y validando catálogo JSON…")
+        ctImportData.value = CtImportUiState(phase = "loading", message = "Leyendo y validando catálogo local…")
         viewModelScope.launch {
             try {
                 val (fileName, report) = withContext(Dispatchers.IO) {
@@ -380,13 +414,13 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                                 if (index >= 0) cursor.getString(index) else null
                             } else null
                         }
-                    }.getOrNull()?.take(100) ?: "catálogo.json"
+                    }.getOrNull()?.take(100) ?: "catálogo-local"
                     val report = resolver.openInputStream(uri)?.use { stream ->
                         CtImportStream.parse(stream) { processed ->
                             val megabytes = processed / (1024L * 1024L)
                             ctImportData.value = CtImportUiState(
                                 phase = "loading", fileName = displayName,
-                                message = "Leyendo JSON grande: $megabytes MB procesados…")
+                                message = "Leyendo catálogo: $megabytes MB procesados…")
                         }
                     } ?: error("No se pudo abrir el archivo")
                     displayName to report
@@ -404,7 +438,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                         else " Catálogo cargado solo en esta sesión: reimpórtalo al abrir de nuevo."
                     val usable = report.records.count { it.ipLan.isNotBlank() }
                     val rejected = report.invalidIp + report.missingMatricula
-                    val info = "JSON importado: ${report.records.size} CT; " +
+                    val info = "Catálogo importado: ${report.records.size} CT; " +
                         "$usable con IP\u0020LAN válida; ${report.missingIp} sin IP\u0020LAN." +
                         if (rejected > 0 || report.duplicates > 0)
                             " Filas rechazadas: $rejected; repetidas: ${report.duplicates}." else ""
@@ -420,16 +454,16 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     val retained = if (previousCount > 0) " Se conserva el catálogo anterior ($previousCount CT)." else ""
                     ctImportData.value = CtImportUiState("empty",
-                        "JSON leído, pero 0 CT importados. $reason.$retained", fileName,
+                        "Archivo leído, pero 0 CT importados. $reason.$retained", fileName,
                         0, report.candidates, report.missingIp + report.invalidIp + report.missingMatricula)
                     message("No se importaron CT: revisa la estructura del JSON")
                 }
             } catch (e: Exception) {
                 val summary = when (e) {
-                    is org.json.JSONException -> "El archivo no contiene un JSON válido"
+                    is org.json.JSONException -> "El archivo no contiene un catálogo válido"
                     is IllegalArgumentException -> e.message ?: "Catálogo JSON no válido"
-                    is java.io.IOException -> "El archivo no se pudo leer: JSON incompleto, mal formado o corrupto"
-                    else -> "No se pudo abrir o leer el archivo JSON"
+                    is java.io.IOException -> "El archivo no se pudo leer: formato incompleto o corrupto"
+                    else -> "No se pudo abrir o leer el catálogo"
                 }
                 val retained = if (previousCount > 0) " Se conserva el catálogo anterior ($previousCount CT)." else ""
                 ctImportData.value = CtImportUiState("error", summary + "." + retained)
@@ -458,29 +492,58 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
         operation = viewModelScope.launch {
             ctSessionData.value = CtSession(plan = plan, stage = "Comprobando identidad y cable WAN", working = true)
             mutable.update { it.copy(busy = true) }
+            var applied = false
+            var verified = false
             try {
                 val check = engine.execute(CtCommands.preflight(), 15000)
                 check(check.successful && check.stdout.contains("CT_PREFLIGHT_OK")) {
                     "Mango no preparado: ${check.stderr.ifBlank { check.stdout }.take(400)}"
+                }
+                val lan = engine.execute(CtCommands.mangoLan(), 15000)
+                check(lan.successful) { "No se pudo leer la LAN real del Mango" }
+                val lanAddress = lan.stdout.lineSequence()
+                    .firstOrNull { it.startsWith("MANGO_LAN_ADDRESS=") }
+                    ?.substringAfter("=") ?: error("Falta la dirección LAN del Mango")
+                val lanMask = lan.stdout.lineSequence()
+                    .firstOrNull { it.startsWith("MANGO_LAN_MASK=") }
+                    ?.substringAfter("=") ?: error("Falta la máscara LAN del Mango")
+                require(!CtPlanning.overlapsMangoLan(plan, lanAddress, lanMask)) {
+                    "La WAN del CT se solapa con la red LAN actual del Mango"
                 }
                 ctSessionData.value = ctSessionData.value.copy(stage = "Asignando WAN ${plan.mangoIp}/${plan.prefix}")
                 val change = engine.execute(CtCommands.apply(plan), 45000)
                 check(change.successful && change.stdout.contains("CT_WAN_CONFIG_OK")) {
                     "WAN sin confirmar: ${change.stderr.ifBlank { change.stdout }.take(400)}"
                 }
-                ctSessionData.value = ctSessionData.value.copy(stage = "Verificando ruta", configured = true)
+                applied = true
+                ctSessionData.value = ctSessionData.value.copy(stage = "Verificando WAN")
                 val verify = engine.execute(CtCommands.verify(plan), 15000)
                 check(verify.successful && verify.stdout.contains("CT_WAN_OK")) {
                     "WAN asignada pero no verificada: ${verify.report().take(400)}"
                 }
-                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando pings autorizados", lastOutput = verify.report())
+                verified = true
+                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando pings autorizados",
+                    configured = true, lastOutput = verify.report())
                 executeCtPings(plan)
             } catch (e: CancellationException) {
-                ctSessionData.value = ctSessionData.value.copy(stage = "Cancelado. Comprueba y restaura WAN si procede")
+                if (applied && !verified) withContext(NonCancellable + Dispatchers.IO) {
+                    runCatching { engine.execute(CtCommands.rollbackPrevious(), 30000) }
+                }
+                ctSessionData.value = ctSessionData.value.copy(configured = false,
+                    stage = "Cancelado. Comprueba y restaura WAN si procede")
                 throw e
             } catch (e: Exception) {
-                ctSessionData.value = ctSessionData.value.copy(
-                    stage = "ERROR: ${e.message}", lastOutput = (e.message ?: "Error").take(500))
+                var recovery = ""
+                if (applied && !verified) {
+                    recovery = runCatching {
+                        val result = engine.execute(CtCommands.rollbackPrevious(), 30000)
+                        if (result.successful) " · WAN anterior recuperada"
+                        else " · Falló recuperación WAN; comprueba el Mango"
+                    }.getOrElse { " · Recuperación WAN pendiente; comprueba el Mango" }
+                }
+                ctSessionData.value = ctSessionData.value.copy(configured = false,
+                    stage = "ERROR: ${e.message}" + recovery,
+                    lastOutput = (e.message ?: "Error").take(500))
             } finally {
                 ctSessionData.value = ctSessionData.value.copy(working = false)
                 mutable.update { it.copy(busy = false) }
