@@ -112,8 +112,15 @@ object CtCommands {
                 restore_previous
                 exit 8
             fi
-            sleep 1
-            if ! ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
+            active=0
+            for attempt in 1 2 3 4 5; do
+                if ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
+                    active=1
+                    break
+                fi
+                sleep 1
+            done
+            if test "${'$'}active" != 1; then
                 restore_previous
                 echo 'WAN no activa: restaurada configuración anterior' >&2
                 exit 8
