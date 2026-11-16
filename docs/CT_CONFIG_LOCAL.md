@@ -42,6 +42,16 @@ El motor admite entre 1 y 16 destinos; todos los offsets han de ser diferentes y
 
 Una respuesta ICMP negativa no demuestra por sí sola una avería. El cambio WAN se ha preparado para pruebas físicas, pero CI y emulador no prueban el firmware ni la conexión física: requiere verificación real con un equipo autorizado.
 
+
+## Cambio automático por matrícula (rama experimental)
+
+- En **CT · Red local**, activa **WAN automática por matrícula** y acepta una sola autorización para la sesión. No se almacena una autorización que pueda ejecutar escrituras al reabrir la aplicación sin intervención.
+- Con SSH conectado a `root@192.168.8.1:22`, archivo de CT importado, parámetros locales introducidos y máscara real conocida, la introducción o selección de una matrícula **exacta** inicia el cambio de WAN tras una pausa breve. Las coincidencias parciales, una máscara ausente o una IP no válida no modifican nada.
+- El botón manual sigue disponible. Los cambios consecutivos de CT mantienen la copia WAN original en el Mango y permiten restaurarla al terminar. No se reinicia la LAN ni se modifica un equipo del CT.
+- Las operaciones fallidas no se repiten automáticamente. Si falla una aplicación, revisar el estado WAN y usar la recuperación manual.
+- **Limitación**: el importador actual acepta JSON local, aún no el archivo eSIR Grid MT en CSV.gz. Hasta que se implemente ese importador no se debe afirmar que es un flujo completo de eSIR.
+- **Pendiente**: verificar SSH físico, firmware real, máscara/rutas y restauración entre dos redes de laboratorio antes de su uso en centros de transformación.
+
 ## Actualizaciones y protección de datos
 
 La misma identidad Android, la misma firma y un versionCode creciente son imprescindibles para actualizar una instalación sin desinstalar. Las APK públicas de prueba usan la firma de depuración del runner; NO se deben presentar como actualización garantizada de otras compilaciones o de la app privada. Hace falta una firma estable protegida por el propietario para distribuir actualizaciones reales; no se guardan claves de firma en este repositorio.
