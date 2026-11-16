@@ -73,7 +73,7 @@ object CtCommands {
         command -v uci >/dev/null 2>&1
         command -v ip >/dev/null 2>&1
         test "$(uci -q get network.wan)" = interface
-        test ! -e $rollback || test -f $rollback || { echo 'Copia de restauración WAN inválida' >&2; exit 8; }
+        test ! -e $rollback || test -f $rollback || { echo 'Copia WAN inválida' >&2; exit 8; }
         ${deviceCheck}
         printf 'CT_PREFLIGHT_OK\n'
     """.trimIndent())
@@ -84,7 +84,7 @@ object CtCommands {
             set -eu
             umask 077
             test "$(id -u)" = 0
-            test ! -e $rollback || test -f $rollback || { echo 'Copia de restauración WAN inválida' >&2; exit 8; }
+            test ! -e $rollback || test -f $rollback || { echo 'Copia WAN inválida' >&2; exit 8; }
             test "$(uci -q get network.wan)" = interface
             ${deviceCheck}
             current=$(mktemp /tmp/mangossh-ct-wan-current.XXXXXX) || exit 8
@@ -93,169 +93,10 @@ object CtCommands {
                 cp -p /etc/config/network $rollback || { rm -f "${'$'}current"; exit 8; }
             fi
             restore_previous() {
-                if test -f "${'
-            trap 'restore_previous' EXIT HUP INT TERM
-            uci set network.wan.proto='static'
-            uci set network.wan.ipaddr='${plan.mangoIp}'
-            uci set network.wan.netmask='${plan.netmask}'
-            uci set network.wan.defaultroute='0'
-            uci set network.wan.peerdns='0'
-            uci -q delete network.wan.gateway || true
-            uci -q delete network.wan.dns || true
-            uci commit network
-            if ! ifup wan; then
-                restore_previous
-                exit 8
-            fi
-            sleep 1
-            if ! ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
-                restore_previous
-                echo 'WAN aplicada pero no activa: restaurada configuración anterior' >&2
-                exit 8
-            fi
-            trap - EXIT HUP INT TERM
-            rm -f "${'$'}current"
-            printf 'CT_WAN_CONFIG_OK\n'
-        """.trimIndent())
-    }
-    fun verify(plan: CtPlan): DiagnosticCommand {
-        require(Validation.ipv4(plan.mangoIp) && Validation.ipv4(plan.netmask) && plan.prefix in 1..30)
-        return DiagnosticCommand("ct-verify", "CT", "Verificar WAN Mango", """
-            set -eu
-            test -f $rollback
-            test "$(uci -q get network.wan.proto)" = static
-            test "$(uci -q get network.wan.ipaddr)" = '${plan.mangoIp}'
-            test "$(uci -q get network.wan.netmask)" = '${plan.netmask}'
-            ${deviceCheck}
-            ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null
-            printf 'CT_WAN_OK\n'
-        """.trimIndent())
-    }
-    fun ping(plan: CtPlan, target: CtTarget): DiagnosticCommand {
-        require(plan.targets.contains(target) && Validation.ipv4(target.ip)) { "Destino no autorizado" }
-        return DiagnosticCommand("ct-ping", "CT", "Ping destino",
-            "if command -v ping >/dev/null 2>&1; then ping -c 4 -W 2 ${target.ip}; else exit 127; fi")
-    }
-    fun restore() = DiagnosticCommand("ct-restore", "CT", "Restaurar WAN Mango", """
-        set -eu
-        test "$(id -u)" = 0
-        test -f $rollback || { echo 'No existe copia WAN para restaurar' >&2; exit 8; }
-        cp -p $rollback /etc/config/network
-        /etc/init.d/network reload
-        rm -f $rollback
-        printf 'CT_WAN_RESTORE_OK\n'
-    """.trimIndent())
-}
-}current"; then
-                    cp -p "${'
-            trap 'restore_previous' EXIT HUP INT TERM
-            uci set network.wan.proto='static'
-            uci set network.wan.ipaddr='${plan.mangoIp}'
-            uci set network.wan.netmask='${plan.netmask}'
-            uci set network.wan.defaultroute='0'
-            uci set network.wan.peerdns='0'
-            uci -q delete network.wan.gateway || true
-            uci -q delete network.wan.dns || true
-            uci commit network
-            if ! ifup wan; then
-                restore_previous
-                exit 8
-            fi
-            sleep 1
-            if ! ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
-                restore_previous
-                echo 'WAN aplicada pero no activa: restaurada configuración anterior' >&2
-                exit 8
-            fi
-            trap - EXIT HUP INT TERM
-            rm -f "${'$'}current"
-            printf 'CT_WAN_CONFIG_OK\n'
-        """.trimIndent())
-    }
-    fun verify(plan: CtPlan): DiagnosticCommand {
-        require(Validation.ipv4(plan.mangoIp) && Validation.ipv4(plan.netmask) && plan.prefix in 1..30)
-        return DiagnosticCommand("ct-verify", "CT", "Verificar WAN Mango", """
-            set -eu
-            test -f $rollback
-            test "$(uci -q get network.wan.proto)" = static
-            test "$(uci -q get network.wan.ipaddr)" = '${plan.mangoIp}'
-            test "$(uci -q get network.wan.netmask)" = '${plan.netmask}'
-            ${deviceCheck}
-            ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null
-            printf 'CT_WAN_OK\n'
-        """.trimIndent())
-    }
-    fun ping(plan: CtPlan, target: CtTarget): DiagnosticCommand {
-        require(plan.targets.contains(target) && Validation.ipv4(target.ip)) { "Destino no autorizado" }
-        return DiagnosticCommand("ct-ping", "CT", "Ping destino",
-            "if command -v ping >/dev/null 2>&1; then ping -c 4 -W 2 ${target.ip}; else exit 127; fi")
-    }
-    fun restore() = DiagnosticCommand("ct-restore", "CT", "Restaurar WAN Mango", """
-        set -eu
-        test "$(id -u)" = 0
-        test -f $rollback || { echo 'No existe copia WAN para restaurar' >&2; exit 8; }
-        cp -p $rollback /etc/config/network
-        /etc/init.d/network reload
-        rm -f $rollback
-        printf 'CT_WAN_RESTORE_OK\n'
-    """.trimIndent())
-}
-}current" /etc/config/network
+                if test -f "${'$'}current"; then
+                    cp -p "${'$'}current" /etc/config/network
                     ifup wan || true
-                    rm -f "${'
-            trap 'restore_previous' EXIT HUP INT TERM
-            uci set network.wan.proto='static'
-            uci set network.wan.ipaddr='${plan.mangoIp}'
-            uci set network.wan.netmask='${plan.netmask}'
-            uci set network.wan.defaultroute='0'
-            uci set network.wan.peerdns='0'
-            uci -q delete network.wan.gateway || true
-            uci -q delete network.wan.dns || true
-            uci commit network
-            if ! ifup wan; then
-                restore_previous
-                exit 8
-            fi
-            sleep 1
-            if ! ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
-                restore_previous
-                echo 'WAN aplicada pero no activa: restaurada configuración anterior' >&2
-                exit 8
-            fi
-            trap - EXIT HUP INT TERM
-            rm -f "${'$'}current"
-            printf 'CT_WAN_CONFIG_OK\n'
-        """.trimIndent())
-    }
-    fun verify(plan: CtPlan): DiagnosticCommand {
-        require(Validation.ipv4(plan.mangoIp) && Validation.ipv4(plan.netmask) && plan.prefix in 1..30)
-        return DiagnosticCommand("ct-verify", "CT", "Verificar WAN Mango", """
-            set -eu
-            test -f $rollback
-            test "$(uci -q get network.wan.proto)" = static
-            test "$(uci -q get network.wan.ipaddr)" = '${plan.mangoIp}'
-            test "$(uci -q get network.wan.netmask)" = '${plan.netmask}'
-            ${deviceCheck}
-            ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null
-            printf 'CT_WAN_OK\n'
-        """.trimIndent())
-    }
-    fun ping(plan: CtPlan, target: CtTarget): DiagnosticCommand {
-        require(plan.targets.contains(target) && Validation.ipv4(target.ip)) { "Destino no autorizado" }
-        return DiagnosticCommand("ct-ping", "CT", "Ping destino",
-            "if command -v ping >/dev/null 2>&1; then ping -c 4 -W 2 ${target.ip}; else exit 127; fi")
-    }
-    fun restore() = DiagnosticCommand("ct-restore", "CT", "Restaurar WAN Mango", """
-        set -eu
-        test "$(id -u)" = 0
-        test -f $rollback || { echo 'No existe copia WAN para restaurar' >&2; exit 8; }
-        cp -p $rollback /etc/config/network
-        /etc/init.d/network reload
-        rm -f $rollback
-        printf 'CT_WAN_RESTORE_OK\n'
-    """.trimIndent())
-}
-}current"
+                    rm -f "${'$'}current"
                 fi
             }
             trap 'restore_previous' EXIT HUP INT TERM
@@ -274,7 +115,7 @@ object CtCommands {
             sleep 1
             if ! ip -4 addr show dev "${'$'}device" | grep -F 'inet ${plan.mangoIp}/${plan.prefix}' >/dev/null; then
                 restore_previous
-                echo 'WAN aplicada pero no activa: restaurada configuración anterior' >&2
+                echo 'WAN no activa: restaurada configuración anterior' >&2
                 exit 8
             fi
             trap - EXIT HUP INT TERM
