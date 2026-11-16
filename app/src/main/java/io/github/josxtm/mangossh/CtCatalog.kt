@@ -4,7 +4,8 @@ import java.io.StringReader
 import java.util.Locale
 
 /** CT data stays local to the Android device. */
-data class CtRecord(val matricula: String, val name: String, val ipLan: String, val netmask: String)
+data class CtRecord(val matricula: String, val name: String, val ipLan: String, val netmask: String,
+    val technicalFields: Map<String, String> = emptyMap())
 data class CtCatalogReport(
     val records: List<CtRecord>,
     val candidates: Int,
