@@ -46,7 +46,7 @@ Una respuesta ICMP negativa no demuestra por sí sola una avería. El cambio WAN
 ## Cambio automático por matrícula (rama experimental)
 
 - En **CT · Red local**, activa **WAN automática por matrícula** y acepta una sola autorización para la sesión. No se almacena una autorización que pueda ejecutar escrituras al reabrir la aplicación sin intervención.
-- Con SSH conectado a `root@192.168.8.1:22`, archivo de CT importado, parámetros locales introducidos y máscara real conocida, la introducción o selección de una matrícula **exacta** inicia el cambio de WAN tras una pausa breve. Las coincidencias parciales, una máscara ausente o una IP no válida no modifican nada.
+- Con SSH conectado al perfil del Mango como administrador, archivo de CT importado, parámetros locales introducidos y máscara real conocida, la introducción o selección de una matrícula **exacta** inicia el cambio de WAN tras una pausa breve. Las coincidencias parciales, una máscara ausente o una IP no válida no modifican nada.
 - El botón manual sigue disponible. Los cambios consecutivos de CT mantienen la copia WAN original en el Mango y permiten restaurarla al terminar. No se reinicia la LAN ni se modifica un equipo del CT.
 - Las operaciones fallidas no se repiten automáticamente. Si falla una aplicación, revisar el estado WAN y usar la recuperación manual.
 - **Limitación**: el importador actual acepta JSON local, aún no el archivo eSIR Grid MT en CSV.gz. Hasta que se implemente ese importador no se debe afirmar que es un flujo completo de eSIR.
