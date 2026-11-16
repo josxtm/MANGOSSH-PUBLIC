@@ -90,4 +90,16 @@ class CtCsvCatalogParserTest {
         assertEquals(1, report.records.size)
         assertEquals(listOf(255,255,255,224).joinToString("."), report.records.single().netmask)
     }
+    @Test fun recognizesGridStyleHeaderWithManyColumns() {
+        val headers = listOf("MATRICULA [BDI]", "NOMBRE [BDI]",
+            "IP" + " LAN [EDIT]") + (3 until 364).map { "AUXILIAR_${it}" }
+        val row = listOf("28TEST1", "Centro de ensayo", address(8)) +
+            (3 until 364).map { "" }
+        val data = headers.joinToString(";") + "\n" + row.joinToString(";") + "\n"
+        val record = CtCsvCatalogParser.parse(StringReader(data)).records.single()
+        assertEquals("28TEST1", record.matricula)
+        assertEquals("Centro de ensayo", record.name)
+        assertEquals(address(8), record.ipLan)
+        assertTrue(record.netmask.isBlank())
+    }
 }
