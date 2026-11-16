@@ -458,29 +458,58 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
         operation = viewModelScope.launch {
             ctSessionData.value = CtSession(plan = plan, stage = "Comprobando identidad y cable WAN", working = true)
             mutable.update { it.copy(busy = true) }
+            var applied = false
+            var verified = false
             try {
                 val check = engine.execute(CtCommands.preflight(), 15000)
                 check(check.successful && check.stdout.contains("CT_PREFLIGHT_OK")) {
                     "Mango no preparado: ${check.stderr.ifBlank { check.stdout }.take(400)}"
+                }
+                val lan = engine.execute(CtCommands.mangoLan(), 15000)
+                check(lan.successful) { "No se pudo leer la LAN real del Mango" }
+                val lanAddress = lan.stdout.lineSequence()
+                    .firstOrNull { it.startsWith("MANGO_LAN_ADDRESS=") }
+                    ?.substringAfter("=") ?: error("Falta la dirección LAN del Mango")
+                val lanMask = lan.stdout.lineSequence()
+                    .firstOrNull { it.startsWith("MANGO_LAN_MASK=") }
+                    ?.substringAfter("=") ?: error("Falta la máscara LAN del Mango")
+                require(!CtPlanning.overlapsMangoLan(plan, lanAddress, lanMask)) {
+                    "La WAN del CT se solapa con la red LAN actual del Mango"
                 }
                 ctSessionData.value = ctSessionData.value.copy(stage = "Asignando WAN ${plan.mangoIp}/${plan.prefix}")
                 val change = engine.execute(CtCommands.apply(plan), 45000)
                 check(change.successful && change.stdout.contains("CT_WAN_CONFIG_OK")) {
                     "WAN sin confirmar: ${change.stderr.ifBlank { change.stdout }.take(400)}"
                 }
-                ctSessionData.value = ctSessionData.value.copy(stage = "Verificando ruta", configured = true)
+                applied = true
+                ctSessionData.value = ctSessionData.value.copy(stage = "Verificando WAN")
                 val verify = engine.execute(CtCommands.verify(plan), 15000)
                 check(verify.successful && verify.stdout.contains("CT_WAN_OK")) {
                     "WAN asignada pero no verificada: ${verify.report().take(400)}"
                 }
-                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando pings autorizados", lastOutput = verify.report())
+                verified = true
+                ctSessionData.value = ctSessionData.value.copy(stage = "Ejecutando pings autorizados",
+                    configured = true, lastOutput = verify.report())
                 executeCtPings(plan)
             } catch (e: CancellationException) {
-                ctSessionData.value = ctSessionData.value.copy(stage = "Cancelado. Comprueba y restaura WAN si procede")
+                if (applied && !verified) withContext(NonCancellable + Dispatchers.IO) {
+                    runCatching { engine.execute(CtCommands.rollbackPrevious(), 30000) }
+                }
+                ctSessionData.value = ctSessionData.value.copy(configured = false,
+                    stage = "Cancelado. Comprueba y restaura WAN si procede")
                 throw e
             } catch (e: Exception) {
-                ctSessionData.value = ctSessionData.value.copy(
-                    stage = "ERROR: ${e.message}", lastOutput = (e.message ?: "Error").take(500))
+                var recovery = ""
+                if (applied && !verified) {
+                    recovery = runCatching {
+                        val result = engine.execute(CtCommands.rollbackPrevious(), 30000)
+                        if (result.successful) " · WAN anterior recuperada"
+                        else " · Falló recuperación WAN; comprueba el Mango"
+                    }.getOrElse { " · Recuperación WAN pendiente; comprueba el Mango" }
+                }
+                ctSessionData.value = ctSessionData.value.copy(configured = false,
+                    stage = "ERROR: ${e.message}" + recovery,
+                    lastOutput = (e.message ?: "Error").take(500))
             } finally {
                 ctSessionData.value = ctSessionData.value.copy(working = false)
                 mutable.update { it.copy(busy = false) }
