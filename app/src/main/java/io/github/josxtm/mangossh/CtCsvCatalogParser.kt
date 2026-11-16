@@ -70,7 +70,11 @@ object CtCsvCatalogParser {
         val columns = csv.next() ?: throw IllegalArgumentException("CSV sin cabecera")
         require(columns.size in 2..MAX_COLUMNS) { "Cantidad de columnas CSV no admitida" }
         val normalized = columns.map(::key)
-        require(normalized.distinct().size == normalized.size) { "Cabeceras CSV duplicadas" }
+        // Repeated decorative columns are permitted, but two candidate ID or
+        // address columns are ambiguous and must not trigger network changes.
+        require(normalized.count { it in ids } == 1 && normalized.count { it in ips } == 1) {
+            "Cabeceras de matrícula o dirección LAN ambiguas"
+        }
         val idIndex = normalized.indexOfFirst { it in ids }
         val ipIndex = normalized.indexOfFirst { it in ips }
         require(idIndex >= 0 && ipIndex >= 0) { "Faltan columnas de matrícula o dirección LAN" }
@@ -98,8 +102,9 @@ object CtCsvCatalogParser {
             val ip = cells[ipIndex].trim()
             if (ip.isEmpty()) missingIp++
             else if (!Validation.ipv4(ip)) { invalidIp++; continue }
-            val mask = if (maskIndex >= 0) cells[maskIndex].trim() else ""
-            if (mask.isNotEmpty() && !validMask(mask)) { invalidIp++; continue }
+            val sourceMask = if (maskIndex >= 0) cells[maskIndex].trim() else ""
+            val mask = parseMask(sourceMask)
+            if (sourceMask.isNotEmpty() && mask == null) { invalidIp++; continue }
             if (id in ambiguous) { duplicates++; continue }
             if (id in found) {
                 // Ambiguous identifiers must never cause a network write.
@@ -115,17 +120,25 @@ object CtCsvCatalogParser {
             }
             found[id] = CtRecord(id,
                 if (nameIndex >= 0) cells[nameIndex].trim().take(120).ifBlank { id } else id,
-                ip, mask, attrs)
+                ip, mask.orEmpty(), attrs)
         }
         return CtCatalogReport(found.values.toList(), candidates, missingIp, invalidIp,
             missingId, duplicates)
     }
 
-    private fun validMask(raw: String): Boolean {
-        if (!Validation.ipv4(raw)) return false
+    /** A provided prefix is converted; an absent mask is never guessed. */
+    private fun parseMask(raw: String): String? {
+        if (raw.isEmpty()) return ""
+        val prefix = raw.removePrefix("/").toIntOrNull()
+        if (prefix != null) {
+            if (prefix !in 1..30) return null
+            val n = (0xffffffffL shl (32 - prefix)) and 0xffffffffL
+            return (3 downTo 0).joinToString(".") { ((n ushr (it * 8)) and 255).toString() }
+        }
+        if (!Validation.ipv4(raw)) return null
         val n = raw.split('.').fold(0L) { acc, v -> (acc shl 8) or v.toLong() }
         val inverse = n.inv() and 0xffffffffL
-        return inverse >= 3 && inverse and (inverse + 1) == 0L
+        return if (inverse >= 3 && inverse and (inverse + 1) == 0L) raw else null
     }
 
     /** RFC 4180-style quoted cells, including escaped quotes and embedded newlines. */
