@@ -327,6 +327,40 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Configure the routing layout locally, without distributing a JSON file. */
+    fun saveCtRules(wanText: String, targetsText: String) {
+        if (state.value.busy || ctSessionData.value.working) {
+            message("Finaliza primero la operación SSH")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val wan = wanText.trim().toIntOrNull() ?: error("Indica un offset WAN numérico")
+                val targetLines = targetsText.lines().map(String::trim).filter(String::isNotBlank)
+                require(targetLines.size in 1..16) { "Introduce entre 1 y 16 destinos" }
+                val targets = targetLines.map { line ->
+                    val separator = line.lastIndexOf(':')
+                    require(separator in 1 until line.lastIndex) { "Formato de destino: Nombre:offset" }
+                    val offset = line.substring(separator + 1).trim().toIntOrNull()
+                        ?: error("Offset de destino inválido")
+                    CtOffset(line.substring(0, separator).trim(), offset)
+                }
+                val config = CtRuntimeConfig(wan, targets).also { it.validate() }
+                withContext(Dispatchers.IO) {
+                    vault.put(runtimeStorageKey, CtLocalConfigCodec.canonical(config))
+                }
+                ctRuntimeData.value = config
+                ctRuntimeInfo.value = "Reglas guardadas cifradas en esta tablet: " +
+                    config.targets.size + " destinos"
+                ctSessionData.value = CtSession(stage = "Parámetros guardados; selecciona el CT")
+                message("Configuración de red local guardada")
+            } catch (error: Exception) {
+                ctRuntimeInfo.value = "No se modificó la configuración: " +
+                    (error.message ?: "parámetros inválidos").take(120)
+            }
+        }
+    }
+
     fun importCtLocalConfig(uri: Uri) {
         if (state.value.busy || ctSessionData.value.working) return message("Finaliza primero la operación SSH")
         viewModelScope.launch {
