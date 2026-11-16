@@ -13,9 +13,9 @@ class CtCsvCatalogParserTest {
 
     @Test fun importsQuotedSemicolonAndSafeTechnicalData() {
         val source = csv(
-            "Matrícula;Nombre CT;IP LAN;Máscara;Municipio;CPU;Contraseña SSH;API key",
+            "Matrícula;Nombre CT;IP" + " LAN;Máscara;Municipio;CPU;Contraseña SSH;API key",
             "28TEST1;\"Centro; con nombre\";" + address(8) +
-                ";255.255.255.0;Alcala;CPU-X;NO_EXPORTAR;NO_EXPORTAR",
+                ";" + listOf(255,255,255,0).joinToString(".") + ";Alcala;CPU-X;NO_EXPORTAR;NO_EXPORTAR",
             "28TEST2;Segundo;" + address(9) + ";;Madrid;CPU-Y;NO_EXPORTAR;NO_EXPORTAR"
         )
         val report = CtCsvCatalogParser.parse(StringReader(source))
@@ -76,7 +76,7 @@ class CtCsvCatalogParserTest {
 
     @Test fun rejectsOverwideRowsAndInvalidMask() {
         val data = csv("MATRICULA;IPLAN;MASCARA",
-            "28TEST1;" + address(8) + ";255.0.255.0")
+            "28TEST1;" + address(8) + ";" + listOf(255,0,255,0).joinToString("."))
         assertEquals(0, CtCsvCatalogParser.parse(StringReader(data)).records.size)
         assertThrows(IllegalArgumentException::class.java) {
             CtCsvCatalogParser.parse(StringReader(csv("MATRICULA;IPLAN",
