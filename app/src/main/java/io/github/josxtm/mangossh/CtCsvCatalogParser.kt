@@ -24,19 +24,20 @@ object CtCsvCatalogParser {
 
     private val ids = setOf("MATRICULA", "MATRICULACT", "CTMATRICULA", "MATRICULABDI", "IDCT")
     private val ips = setOf("IPLAN", "LANIP", "IPLANEDIT", "DIRECCIONIPLAN", "DIRECCIONLAN", "IPREDLAN", "IPLANCT")
-    private val names = setOf("NOMBRE", "NOMBRECT", "NOMBRECENTRO", "CENTRO", "DENOMINACION")
+    private val names = setOf("NOMBRE", "NOMBRECT", "NOMBREBDI", "NOMBRECENTRO", "CENTRO", "DENOMINACION")
     private val masks = setOf("MASCARA", "MASCARARED", "NETMASK", "SUBNETMASK", "LANMASK", "MASCARALAN")
     private val privateWords = listOf("PASSWORD", "PASSWD", "CONTRASEN", "SECRET", "TOKEN",
-        "CREDENCIAL", "PRIVATEKEY", "APIKEY", "CLAVE", "PIN", "AUTENTIC", "USUARIO", "LOGIN", "PSK")
+        "CREDENCIAL", "PRIVATEKEY", "APIKEY", "CLAVE", "AUTENTIC", "USUARIO", "LOGIN", "PSK")
     // Whitelist of technical metadata; unknown fields are never persisted.
     private val technicalWords = listOf("CODIGOBDI", "MUNICIPIO", "CALLE", "DIRECCION", "PROVINCIA",
         "ALIMENTACION", "GST", "CPU", "RFID", "CAA", "IPTC", "NTRAFOS",
         "TRAFO", "TRANSFORMACION", "MODELO", "FABRICANTE", "NUMEROSERIE",
         "POTENCIA", "EDIFICACION", "TIPOCENTRO", "TIPO", "TENSION", "SUBESTACION",
-        "POSICION", "FECHA", "COMUNICACION", "CIRCUITO", "OPERADOR", "BAHIA")
+        "POSICION", "FECHA", "COMUNICACION", "CIRCUITO", "OPERADOR", "BAHIA", "PINGS")
 
     private fun allowedTechnical(k: String): Boolean =
         k.isNotBlank() && privateWords.none { k.contains(it) } &&
+            !(k.startsWith("PIN") && !k.startsWith("PINGS")) &&
             technicalWords.any { k == it || k.startsWith(it) }
 
     private fun isId(raw: String): Boolean {
