@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.delay
 import io.github.josxtm.mangossh.core.CtPlanning
 import io.github.josxtm.mangossh.core.mangoDefaultHost
 
@@ -31,6 +32,9 @@ fun CtPanel(vm: MangoViewModel) {
     var base by rememberSaveable { mutableStateOf("") }
     var mask by rememberSaveable { mutableStateOf("") }
     var previousAutoMatricula by rememberSaveable { mutableStateOf("") }
+    var autoWan by rememberSaveable { mutableStateOf(false) }
+    var autoWanPermission by remember { mutableStateOf(false) }
+    var lastAutomaticPlan by remember { mutableStateOf("") }
     var confirmApply by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -63,6 +67,22 @@ fun CtPanel(vm: MangoViewModel) {
     val plan = remember(search, base, mask, runtime) {
         runCatching { CtPlanning.build(search, base, mask, runtime) }.getOrNull()
     }
+    // Only a complete, exact, validated CT match can trigger a write to the owner's Mango.
+    // A failed attempt is never retried by recomposition; use the manual button to retry.
+    LaunchedEffect(autoWan, plan, selectedRecord?.matricula, status.connectedProfile?.host,
+        status.connectedProfile?.user, status.busy, session.working) {
+        if (!autoWan || plan == null || selectedRecord?.matricula != plan.matricula ||
+            selectedRecord.ipLan.isBlank() || selectedRecord.ipLan != plan.lanBase ||
+            status.connectedProfile?.host != mangoDefaultHost() ||
+            status.connectedProfile?.user != "root" || status.busy || session.working) return@LaunchedEffect
+        val key = "${plan.matricula}|${plan.mangoIp}|${plan.netmask}"
+        if (lastAutomaticPlan == key) return@LaunchedEffect
+        delay(900)
+        if (lastAutomaticPlan != key) {
+            lastAutomaticPlan = key
+            vm.setupAndProbeCt(plan.matricula, plan.lanBase, plan.netmask, true)
+        }
+    }
     Card(Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -82,6 +102,17 @@ fun CtPanel(vm: MangoViewModel) {
                     "2. Conecta el puerto WAN del Mango a la LAN del CT autorizado. " +
                     "3. Verifica la máscara y que dirección reservada no esté ocupada.",
                     style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column(Modifier.weight(1f)) {
+                        Text("WAN automática por matrícula", style = MaterialTheme.typography.titleSmall)
+                        Text(if (autoWan) "Activada: selecciona un CT exacto con máscara válida"
+                             else "Desactivada: exige pulsar Configurar WAN",
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = autoWan, onCheckedChange = {
+                        if (it) autoWanPermission = true else autoWan = false
+                    })
+                }
                 OutlinedButton(
                     enabled = importState.phase != "loading",
                     onClick = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
@@ -202,6 +233,19 @@ fun CtPanel(vm: MangoViewModel) {
                     style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+    if (autoWanPermission) {
+        AlertDialog(onDismissRequest = { autoWanPermission = false },
+            title = { Text("Activar cambio automático de WAN") },
+            text = { Text("Mientras esté activado, al introducir o seleccionar una matrícula completa con IP y máscara verificadas, MangoSSH modificará SIN segunda confirmación únicamente la WAN de tu GL-MT300N-V2. " +
+                "Comprueba antes que el puerto WAN esté conectado a la red CT autorizada y que la IP WAN reservada esté libre. " +
+                "No se envían órdenes al router ni a los equipos del CT. Puedes desactivarlo en cualquier momento.") },
+            confirmButton = { TextButton(onClick = {
+                lastAutomaticPlan = ""
+                autoWan = true
+                autoWanPermission = false
+            }) { Text("Activar automatización") } },
+            dismissButton = { TextButton(onClick = { autoWanPermission = false }) { Text("Cancelar") } })
     }
     if (confirmApply && plan != null) {
         AlertDialog(onDismissRequest = { confirmApply = false },
