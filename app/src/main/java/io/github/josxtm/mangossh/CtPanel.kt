@@ -32,7 +32,7 @@ fun CtPanel(vm: MangoViewModel) {
     var base by rememberSaveable { mutableStateOf("") }
     var mask by rememberSaveable { mutableStateOf("") }
     var previousAutoMatricula by rememberSaveable { mutableStateOf("") }
-    var autoWan by rememberSaveable { mutableStateOf(false) }
+    var autoWan by remember { mutableStateOf(false) }
     var autoWanPermission by remember { mutableStateOf(false) }
     var lastAutomaticPlan by remember { mutableStateOf("") }
     var confirmApply by remember { mutableStateOf(false) }
@@ -115,8 +115,8 @@ fun CtPanel(vm: MangoViewModel) {
                 }
                 OutlinedButton(
                     enabled = importState.phase != "loading",
-                    onClick = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
-                ) { Text("Importar catálogo JSON local") }
+                    onClick = { picker.launch(arrayOf("*/*")) }
+                ) { Text("Importar Grid MT CSV / CSV.gz (o JSON anterior)") }
                 if (importState.phase == "loading") LinearProgressIndicator(Modifier.fillMaxWidth())
                 Text(importState.message,
                     style = MaterialTheme.typography.bodyMedium,
@@ -126,7 +126,7 @@ fun CtPanel(vm: MangoViewModel) {
                     Text("Archivo: " + importState.fileName,
                         style = MaterialTheme.typography.labelSmall)
                 }
-                Text("${catalog.size} CT disponibles en esta sesión (JSON local).",
+                Text("${catalog.size} CT disponibles en esta sesión (archivo local).",
                     style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
                     enabled = !status.busy && !session.working,
@@ -139,9 +139,13 @@ fun CtPanel(vm: MangoViewModel) {
                     label = { Text("Matrícula del CT") }, singleLine = true,
                     modifier = Modifier.fillMaxWidth())
                 if (selectedRecord != null) {
+                    if (selectedRecord.technicalFields.isNotEmpty()) {
+                        Text("Campos técnicos disponibles: " + selectedRecord.technicalFields.size,
+                            style = MaterialTheme.typography.labelSmall)
+                    }
                     Text(
                         if (selectedRecord.ipLan.isBlank())
-                            "CT encontrado · ${selectedRecord.name} · SIN IP\u0020LAN en el JSON. " +
+                             "CT encontrado · ${selectedRecord.name} · SIN dirección LAN en el catálogo. " +
                                 "Comprueba la IP real antes de introducirla manualmente."
                         else
                             "CT encontrado · ${selectedRecord.name} · IP\u0020LAN cargada: ${selectedRecord.ipLan}",
@@ -149,7 +153,7 @@ fun CtPanel(vm: MangoViewModel) {
                         color = if (selectedRecord.ipLan.isBlank()) MaterialTheme.colorScheme.error
                             else MaterialTheme.colorScheme.primary)
                 } else if (normalizedSearch.isNotBlank() && catalog.isNotEmpty() && matched.isEmpty()) {
-                    Text("CT no encontrado en el JSON importado. Comprueba la matrícula.",
+                    Text("CT no encontrado en el catálogo importado. Comprueba la matrícula.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.error)
                 }
@@ -229,7 +233,7 @@ fun CtPanel(vm: MangoViewModel) {
                         style = MaterialTheme.typography.bodySmall, fontFamily = FontFamily.Monospace) }
                 Text("Seguridad: solo cambia la WAN del GL-MT300N-V2, nunca la configuración del router del CT. " +
                     "Los ping no prueban por sí solos el estado funcional de un equipo. " +
-                    "La copia de restauración en /tmp se pierde si reinicias el Mango.",
+                    "La copia de restauración se conserva en el Mango; requiere prueba física.",
                     style = MaterialTheme.typography.labelSmall)
             }
         }
