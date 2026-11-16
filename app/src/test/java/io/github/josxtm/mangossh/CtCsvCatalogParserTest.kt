@@ -83,4 +83,11 @@ class CtCsvCatalogParserTest {
                 "28TEST1;" + address(8) + ";extra")))
         }
     }
+    @Test fun parsesPrefixMaskAndIgnoresDuplicateUnusedHeaders() {
+        val data = csv("MATRICULA;IPLAN;MASCARA;VACIO;VACIO",
+            "28TEST1;" + address(9) + ";/27;uno;dos")
+        val report = CtCsvCatalogParser.parse(StringReader(data))
+        assertEquals(1, report.records.size)
+        assertEquals(listOf(255,255,255,224).joinToString("."), report.records.single().netmask)
+    }
 }
