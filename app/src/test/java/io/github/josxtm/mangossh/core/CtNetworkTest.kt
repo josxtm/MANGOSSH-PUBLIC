@@ -76,4 +76,21 @@ class CtNetworkTest {
         assertFalse(apply.contains("network.lan."))
         assertTrue(apply.contains("CT_WAN_CONFIG_OK"))
     }
+    @Test fun rejectsLanWanOverlapBeforeApplying() {
+        val plan = CtPlanning.build("TEST1", base, mask, local())
+        assertTrue(CtPlanning.overlapsMangoLan(plan, base,
+            listOf(255,255,255,0).joinToString(".")))
+        assertFalse(CtPlanning.overlapsMangoLan(plan,
+            listOf(192,0,2,1).joinToString("."),
+            listOf(255,255,255,0).joinToString(".")))
+    }
+    @Test fun keepsPreviousConfigAndRestoresOnlyWan() {
+        val plan = CtPlanning.build("TEST2", base, mask, local())
+        val apply = CtCommands.apply(plan).shell
+        assertTrue(apply.contains("mangossh-ct-wan-previous"))
+        assertTrue(CtCommands.rollbackPrevious().shell.contains("ifup wan"))
+        assertTrue(CtCommands.mangoLan().shell.contains("MANGO_LAN_MASK"))
+        assertFalse(CtCommands.restore().shell.contains("network reload"))
+        assertTrue(CtCommands.restore().shell.contains("ifup wan"))
+    }
 }
