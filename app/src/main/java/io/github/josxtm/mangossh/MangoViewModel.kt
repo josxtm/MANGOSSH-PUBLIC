@@ -367,7 +367,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
     fun importCtCatalog(uri: Uri, restored: Boolean = false) {
         if (ctImportData.value.phase == "loading") return
         val previousCount = ctCatalogData.value.size
-        ctImportData.value = CtImportUiState(phase = "loading", message = "Leyendo y validando catálogo JSON…")
+        ctImportData.value = CtImportUiState(phase = "loading", message = "Leyendo y validando catálogo local…")
         viewModelScope.launch {
             try {
                 val (fileName, report) = withContext(Dispatchers.IO) {
@@ -380,13 +380,13 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                                 if (index >= 0) cursor.getString(index) else null
                             } else null
                         }
-                    }.getOrNull()?.take(100) ?: "catálogo.json"
+                    }.getOrNull()?.take(100) ?: "catálogo-local"
                     val report = resolver.openInputStream(uri)?.use { stream ->
                         CtImportStream.parse(stream) { processed ->
                             val megabytes = processed / (1024L * 1024L)
                             ctImportData.value = CtImportUiState(
                                 phase = "loading", fileName = displayName,
-                                message = "Leyendo JSON grande: $megabytes MB procesados…")
+                                message = "Leyendo catálogo: $megabytes MB procesados…")
                         }
                     } ?: error("No se pudo abrir el archivo")
                     displayName to report
@@ -404,7 +404,7 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                         else " Catálogo cargado solo en esta sesión: reimpórtalo al abrir de nuevo."
                     val usable = report.records.count { it.ipLan.isNotBlank() }
                     val rejected = report.invalidIp + report.missingMatricula
-                    val info = "JSON importado: ${report.records.size} CT; " +
+                    val info = "Catálogo importado: ${report.records.size} CT; " +
                         "$usable con IP\u0020LAN válida; ${report.missingIp} sin IP\u0020LAN." +
                         if (rejected > 0 || report.duplicates > 0)
                             " Filas rechazadas: $rejected; repetidas: ${report.duplicates}." else ""
@@ -420,16 +420,16 @@ class MangoViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     val retained = if (previousCount > 0) " Se conserva el catálogo anterior ($previousCount CT)." else ""
                     ctImportData.value = CtImportUiState("empty",
-                        "JSON leído, pero 0 CT importados. $reason.$retained", fileName,
+                        "Archivo leído, pero 0 CT importados. $reason.$retained", fileName,
                         0, report.candidates, report.missingIp + report.invalidIp + report.missingMatricula)
                     message("No se importaron CT: revisa la estructura del JSON")
                 }
             } catch (e: Exception) {
                 val summary = when (e) {
-                    is org.json.JSONException -> "El archivo no contiene un JSON válido"
+                    is org.json.JSONException -> "El archivo no contiene un catálogo válido"
                     is IllegalArgumentException -> e.message ?: "Catálogo JSON no válido"
-                    is java.io.IOException -> "El archivo no se pudo leer: JSON incompleto, mal formado o corrupto"
-                    else -> "No se pudo abrir o leer el archivo JSON"
+                    is java.io.IOException -> "El archivo no se pudo leer: formato incompleto o corrupto"
+                    else -> "No se pudo abrir o leer el catálogo"
                 }
                 val retained = if (previousCount > 0) " Se conserva el catálogo anterior ($previousCount CT)." else ""
                 ctImportData.value = CtImportUiState("error", summary + "." + retained)
