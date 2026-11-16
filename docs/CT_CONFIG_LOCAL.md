@@ -43,14 +43,50 @@ El motor admite entre 1 y 16 destinos; todos los offsets han de ser diferentes y
 Una respuesta ICMP negativa no demuestra por sí sola una avería. El cambio WAN se ha preparado para pruebas físicas, pero CI y emulador no prueban el firmware ni la conexión física: requiere verificación real con un equipo autorizado.
 
 
-## Cambio automático por matrícula (rama experimental)
+## Importador nativo de centros
 
-- En **CT · Red local**, activa **WAN automática por matrícula** y acepta una sola autorización para la sesión. No se almacena una autorización que pueda ejecutar escrituras al reabrir la aplicación sin intervención.
-- Con SSH conectado al perfil del Mango como administrador, archivo de CT importado, parámetros locales introducidos y máscara real conocida, la introducción o selección de una matrícula **exacta** inicia el cambio de WAN tras una pausa breve. Las coincidencias parciales, una máscara ausente o una IP no válida no modifican nada.
-- El botón manual sigue disponible. Los cambios consecutivos de CT mantienen la copia WAN original en el Mango y permiten restaurarla al terminar. No se reinicia la LAN ni se modifica un equipo del CT.
-- Las operaciones fallidas no se repiten automáticamente. Si falla una aplicación, revisar el estado WAN y usar la recuperación manual.
-- **Limitación**: el importador actual acepta JSON local, aún no el archivo eSIR Grid MT en CSV.gz. Hasta que se implemente ese importador no se debe afirmar que es un flujo completo de eSIR.
-- **Pendiente**: verificar SSH físico, firmware real, máscara/rutas y restauración entre dos redes de laboratorio antes de su uso en centros de transformación.
+La pantalla CT · Red local permite importar directamente CSV o CSV.gz.
+Si el archivo tiene compresión GZIP se detecta por su cabecera, no por el nombre.
+El importador usa lectura por filas y límite de tamaño descomprimido; no conserva
+columnas de contraseñas, claves ni otros campos no autorizados.
+Los campos técnicos aprobados se conservan únicamente en la app.
+
+- Detecta separadores habituales, comillas escapadas y BOM.
+- Requiere encabezados inequívocos de matrícula y dirección LAN.
+- Acepta máscaras decimales o prefijos CIDR proporcionados por la fuente.
+- No supone ninguna máscara si falta en el archivo.
+- Rechaza matrículas repetidas como ambiguas.
+- Preserva el catálogo anterior si la importación falla.
+- Reabre el documento Android autorizado tras reiniciar la app.
+- El importador JSON anterior sigue disponible por compatibilidad.
+
+Los encabezados concretos del archivo privado se verificarán localmente;
+el repositorio solo incluye datos ficticios.
+
+## Reglas locales sin archivo JSON
+
+En CT · Red local → Configurar offsets WAN y equipos en la tablet se define
+el offset WAN reservado y un destino por línea con formato Nombre:offset.
+Estas reglas se validan y cifran con Android Keystore, sin salir del dispositivo.
+La importación de las reglas JSON antiguas es opcional.
+
+## WAN automática y recuperación
+
+El modo automático se habilita expresamente por sesión. Requiere una matrícula
+exacta, IP y máscara válidas, identidad SSH comprobada, dispositivo WAN disponible
+y ausencia de solapamiento con la LAN real del Mango.
+
+- La copia original persiste en /etc/config/mangossh-ct-wan-rollback.
+- Cada cambio conserva estado anterior en /etc/config/mangossh-ct-wan-previous.
+- Las copias permanecen tras reiniciar el router.
+- Los cambios recargan solamente wan con ifup wan.
+- Si falla la verificación posterior se intenta recuperar el estado anterior.
+- Restaurar la configuración original necesita acceso SSH al Mango.
+- Un ping fallido no prueba una avería del CT.
+
+**Limitaciones:** no se ha probado físicamente frente a pérdida de alimentación,
+cable WAN desconectado ni firmware real. No habilitar en redes operativas
+hasta completar validación con el equipo autorizado.
 
 ## Actualizaciones y protección de datos
 
