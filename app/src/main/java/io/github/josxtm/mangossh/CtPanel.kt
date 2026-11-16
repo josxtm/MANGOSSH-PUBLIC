@@ -37,6 +37,9 @@ fun CtPanel(vm: MangoViewModel) {
     var lastAutomaticPlan by remember { mutableStateOf("") }
     var confirmApply by remember { mutableStateOf(false) }
     var confirmRestore by remember { mutableStateOf(false) }
+    var showRules by remember { mutableStateOf(false) }
+    var wanRule by remember { mutableStateOf("") }
+    var targetRules by remember { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) vm.importCtCatalog(uri)
     }
@@ -128,10 +131,18 @@ fun CtPanel(vm: MangoViewModel) {
                 }
                 Text("${catalog.size} CT disponibles en esta sesión (archivo local).",
                     style = MaterialTheme.typography.labelSmall)
+                OutlinedButton(enabled = !status.busy && !session.working,
+                    onClick = {
+                        wanRule = runtime?.wanOffset?.toString().orEmpty()
+                        targetRules = runtime?.targets?.joinToString("\n") { it.name + ":" + it.offset }.orEmpty()
+                        showRules = true
+                    }) { Text("Configurar offsets WAN y equipos en la tablet") }
+                Text("Opcional: importación de reglas antiguas en JSON local",
+                    style = MaterialTheme.typography.labelSmall)
                 OutlinedButton(
                     enabled = !status.busy && !session.working,
                     onClick = { runtimePicker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
-                ) { Text("Importar parámetros de red locales (cifrados)") }
+                ) { Text("Importar reglas JSON antiguas") }
                 Text(runtimeStatus, style = MaterialTheme.typography.bodySmall,
                     color = if (runtime == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
                 OutlinedTextField(search,
@@ -237,6 +248,28 @@ fun CtPanel(vm: MangoViewModel) {
                     style = MaterialTheme.typography.labelSmall)
             }
         }
+    }
+    if (showRules) {
+        AlertDialog(onDismissRequest = { showRules = false },
+            title = { Text("Parámetros de red locales") },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Introduce el offset WAN autorizado y un destino por línea. " +
+                        "Ejemplo de formato: Equipo A:5. Estos valores solo se almacenan en la tablet.",
+                        style = MaterialTheme.typography.bodySmall)
+                    OutlinedTextField(wanRule, { wanRule = it.filter(Char::isDigit) },
+                        label = { Text("Offset WAN") }, singleLine = true)
+                    OutlinedTextField(targetRules, { targetRules = it },
+                        label = { Text("Destinos (Nombre:offset)") }, minLines = 5,
+                        maxLines = 12, modifier = Modifier.fillMaxWidth())
+                }
+            },
+            confirmButton = { TextButton(onClick = {
+                vm.saveCtRules(wanRule, targetRules)
+                showRules = false
+            }) { Text("Validar y guardar") } },
+            dismissButton = { TextButton(onClick = { showRules = false }) { Text("Cancelar") } })
     }
     if (autoWanPermission) {
         AlertDialog(onDismissRequest = { autoWanPermission = false },
